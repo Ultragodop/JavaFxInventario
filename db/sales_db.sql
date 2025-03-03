@@ -1,0 +1,10 @@
+CREATE DATABASE IF NOT EXISTS sales_db;
+USE sales_db;
+
+CREATE TABLE sales (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id VARCHAR(50) NOT NULL,
+    quantity INT NOT NULL,
+    sale_amount DECIMAL(10,2) NOT NULL,
+    sale_date DATETIME DEFAULT CURRENT_TIMESTAMP
+);

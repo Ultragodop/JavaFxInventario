@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.net.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane prefHeight="327.0" prefWidth="670.0" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.minimercado.javafxinventario.LoginController">
+  <stylesheets>
+    <URL value="@login.css" />
+  </stylesheets>
+  <children>
+    <VBox alignment="CENTER" layoutX="302.0" layoutY="119.0" prefHeight="184.0" prefWidth="354.0" spacing="15.0" AnchorPane.bottomAnchor="24.0" AnchorPane.leftAnchor="302.0" AnchorPane.rightAnchor="14.0" AnchorPane.topAnchor="119.0">
+      <TextField fx:id="usernameField" promptText="Usuario" />
+      <PasswordField fx:id="passwordField" promptText="Contraseña" />
+      <TextField fx:id="adminCodeField" promptText="Código de administrador (opcional)" />
+      <HBox spacing="10">
+         <Button onAction="#handleLogin" text="Iniciar Sesión" />
+         <Button onAction="#handleRegister" text="Registrarse" />
+      </HBox>
+      <Label fx:id="errorLabel" textFill="red" />
+    </VBox>
+      <ImageView fitHeight="103.0" fitWidth="360.0" layoutX="297.0" layoutY="14.0" pickOnBounds="true" preserveRatio="true" />
+      <ImageView fitHeight="280.0" fitWidth="282.0" layoutX="9.0" layoutY="22.0" pickOnBounds="true" preserveRatio="true" />
+  </children>
+</AnchorPane>
