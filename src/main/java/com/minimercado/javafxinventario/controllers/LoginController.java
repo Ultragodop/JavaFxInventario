@@ -1,4 +1,4 @@
-package com.minimercado.javafxinventario;
+package com.minimercado.javafxinventario.controllers;
 
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
@@ -54,7 +54,7 @@ public class LoginController {
         try {
             boolean registered = securityModule.registerAdmin(username, userpasswd, adminCode);
             if (registered) {
-                errorLabel.setText("Registro exitoso. Puede iniciar sesión.");
+                errorLabel.setText("Registro exitoso. !TE PERMITO! !OJO YO TE TENGO QUE PERMITIR! iniciar sesión.");
             }
         } catch (Exception e) {
             errorLabel.setText("Error: " + e.getMessage());

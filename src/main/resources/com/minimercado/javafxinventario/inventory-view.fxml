@@ -1,46 +1,98 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.control.TableColumn?>
-<?import javafx.scene.control.TableView?>
-<?import javafx.scene.control.TextField?>
+<?import java.net.URL?>
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.layout.HBox?>
-<?import java.net.URL?>
+<?import javafx.scene.layout.StackPane?>
+<?import javafx.scene.control.*?>
 <AnchorPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.minimercado.javafxinventario.controllers.InventoryViewController"
             prefHeight="400.0" prefWidth="600.0">
-
-    <stylesheets>
-        <URL value="@inventory.css"/>
-    </stylesheets>
-    <children>
-        <VBox spacing="15.0" AnchorPane.topAnchor="20.0" AnchorPane.leftAnchor="20.0" AnchorPane.rightAnchor="20.0" AnchorPane.bottomAnchor="20.0">
-            <Label text="Gestión de Inventario" styleClass="header-label" />
-            <TableView fx:id="productsTable" prefHeight="300.0" prefWidth="600.0">
-                <columns>
-                    <TableColumn fx:id="idColumn" text="ID"/>
-                    <TableColumn fx:id="nameColumn" text="Nombre"/>
-                    <TableColumn fx:id="stockColumn" text="Stock"/>
-                    <TableColumn fx:id="thresholdColumn" text="Umbral"/>
-                    <TableColumn fx:id="priceColumn" text="Precio"/>
-                </columns>
-            </TableView>
-            <HBox spacing="10.0">
-                <TextField fx:id="idField" promptText="ID"/>
-                <TextField fx:id="nameField" promptText="Nombre"/>
-                <TextField fx:id="stockField" promptText="Stock"/>
-                <TextField fx:id="thresholdField" promptText="Umbral"/>
-                <TextField fx:id="priceField" promptText="Precio"/>
-            </HBox>
-            <HBox spacing="10.0" alignment="CENTER">
-                <Button text="Agregar" onAction="#handleAddProduct" styleClass="button"/>
-                <Button text="Actualizar" onAction="#handleUpdateProduct" styleClass="button"/>
-                <Button text="Eliminar" onAction="#handleRemoveProduct" styleClass="button"/>
-            </HBox>
-            <Label fx:id="statusLabel" styleClass="status-label"/>
+  <stylesheets>
+    <URL value="@inventory.css"/>
+  </stylesheets>
+  <children>
+    <VBox spacing="10.0" AnchorPane.topAnchor="10" AnchorPane.leftAnchor="10" AnchorPane.rightAnchor="10">
+      <!-- Menú de opciones -->
+      <HBox spacing="10">
+        <Button text="Agregar Producto" onAction="#showAgregar"/>
+        <Button text="Actualizar Producto" onAction="#showActualizar"/>
+        <Button text="Eliminar Producto" onAction="#showEliminar"/>
+        <!-- Nuevo botón para búsqueda de productos -->
+        <Button text="Buscar Producto" onAction="#showBuscar" styleClass="button"/>
+      </HBox>
+      <!-- StackPane que contiene los tres paneles -->
+      <StackPane fx:id="optionsStack" prefHeight="350.0">
+        <!-- Panel Agregar: se reutiliza la vista original para agregar producto -->
+        <VBox fx:id="agregarPane" spacing="15.0">
+          <Label text="Gestión de Inventario - Agregar Producto" styleClass="header-label" />
+          <HBox spacing="10.0">
+            <TextField fx:id="idField" promptText="ID"/>
+            <TextField fx:id="nameField" promptText="Nombre"/>
+            <TextField fx:id="stockField" promptText="Stock"/>
+            <TextField fx:id="thresholdField" promptText="Umbral"/>
+            <TextField fx:id="priceField" promptText="Precio"/>
+          </HBox>
+          <Button text="Agregar" onAction="#handleAddProduct" styleClass="button"/>
+          <TableView fx:id="productsTable" prefHeight="200.0">
+            <columns>
+              <TableColumn fx:id="idColumn" text="ID"/>
+              <TableColumn fx:id="nameColumn" text="Nombre"/>
+              <TableColumn fx:id="stockColumn" text="Stock"/>
+              <TableColumn fx:id="thresholdColumn" text="Umbral"/>
+              <TableColumn fx:id="priceColumn" text="Precio"/>
+            </columns>
+          </TableView>
+          <Label fx:id="statusLabel"/>
         </VBox>
-    </children>
+        <!-- Panel Actualizar: búsqueda y modificación del precio -->
+        <VBox fx:id="actualizarPane" spacing="15.0" visible="false">
+          <Label text="Actualizar Producto - Modificar Precio" styleClass="header-label" />
+          <TextField fx:id="searchFieldUpdate" promptText="Buscar producto por ID o nombre"/>
+          <Button text="Buscar" onAction="#handleSearchUpdateProducts" styleClass="button"/>
+          <TableView fx:id="updateResultsTable" prefHeight="150.0">
+            <columns>
+              <TableColumn fx:id="updateIdColumn" text="ID"/>
+              <TableColumn fx:id="updateNameColumn" text="Nombre"/>
+            </columns>
+          </TableView>
+          <TextField fx:id="newPriceField" promptText="Nuevo Precio"/>
+          <Button text="Actualizar" onAction="#handleUpdateProductPrice" styleClass="button"/>
+          <Label fx:id="statusLabelUpdate"/>
+        </VBox>
+        <!-- Panel Eliminar: búsqueda para eliminación -->
+        <VBox fx:id="eliminarPane" spacing="15.0" visible="false">
+          <Label text="Eliminar Producto" styleClass="header-label" />
+          <TextField fx:id="searchFieldDelete" promptText="Buscar producto por ID o nombre"/>
+          <Button text="Buscar" onAction="#handleSearchDeleteProducts" styleClass="button"/>
+          <TableView fx:id="deleteResultsTable" prefHeight="150.0">
+            <columns>
+              <TableColumn fx:id="deleteIdColumn" text="ID"/>
+              <TableColumn fx:id="deleteNameColumn" text="Nombre"/>
+            </columns>
+          </TableView>
+          <Button text="Eliminar Seleccionado" onAction="#handleRemoveProductBySelection" styleClass="button"/>
+          <Label fx:id="statusLabelDelete"/>
+        </VBox>
+        <!-- Panel Búsqueda: búsqueda de productos por nombre -->
+        <VBox fx:id="searchPane" spacing="15.0" visible="false">
+          <Label text="Buscar Producto" styleClass="header-label" />
+          <!-- Changed fx:id to searchFieldBuscar to match the controller -->
+          <TextField fx:id="searchFieldBuscar" promptText="Buscar producto por nombre"/>
+          <Button text="Buscar" onAction="#handleBuscarProducto" styleClass="button"/>
+          <TableView fx:id="searchResultsTable" prefHeight="150.0">
+            <columns>
+              <TableColumn fx:id="searchIdColumn" text="ID"/>
+              <TableColumn fx:id="searchNameColumn" text="Nombre"/>
+              <TableColumn fx:id="searchStockColumn" text="Stock"/>
+              <TableColumn fx:id="searchThresholdColumn" text="Umbral"/>
+              <TableColumn fx:id="searchPriceColumn" text="Precio"/>
+            </columns>
+          </TableView>
+          <Label fx:id="statusLabelBuscar"/>
+        </VBox>
+      </StackPane>
+    </VBox>
+  </children>
 </AnchorPane>

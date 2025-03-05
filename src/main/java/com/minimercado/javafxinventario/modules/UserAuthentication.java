@@ -1,5 +1,5 @@
 package com.minimercado.javafxinventario.modules;
-
+import com.minimercado.javafxinventario.DAO.UserDAO;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 public class UserAuthentication {

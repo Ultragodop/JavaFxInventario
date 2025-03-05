@@ -1,11 +1,11 @@
-package com.minimercado.javafxinventario.modules;
+package com.minimercado.javafxinventario.DAO;
 
 import java.sql.*;
 
 public class UserDAO {
     private final String url = "jdbc:mysql://localhost:3306/users_db";
-    private final String user = "root";
-    private final String password = "";
+    private final String user = "UsersDAO";
+    private final String password = "2007absalom";
 
     public boolean userExists(String username) {
         String sql = "SELECT COUNT(*) FROM users WHERE username = ?";

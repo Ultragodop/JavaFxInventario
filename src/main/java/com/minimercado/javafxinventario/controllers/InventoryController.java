@@ -10,7 +10,6 @@ public class InventoryController {
     public StockManager getStockManager() {
         return inventoryModule.getStockManager();
     }
-    
     public void addProduct(Product product) {
         inventoryModule.getStockManager().addProduct(product);
     }
