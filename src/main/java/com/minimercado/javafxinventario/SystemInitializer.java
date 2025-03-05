@@ -26,7 +26,7 @@ public class SystemInitializer extends Application {
         initSalesModule();
         initSecurityModule();
         initApiGateway();
-        FXMLLoader fxmlLoader = new FXMLLoader(SystemInitializer.class.getResource("login-view.fxml"));
+        FXMLLoader fxmlLoader = new FXMLLoader(SystemInitializer.class.getResource("inventory-view.fxml"));
         Scene scene = new Scene(fxmlLoader.load(), 800, 600); // ventana aumentada para mayor escalabilidad
         stage.setTitle("Sistema Inventario y Contabilidad");
         stage.setScene(scene);
@@ -59,7 +59,7 @@ public class SystemInitializer extends Application {
     }
 
     public static void main(String[] args) {
-        // ...inicialización de conexión a BD, pooling, etc...
+        // ...inicialigh repo clone Ultragodop/JavaFxInventariozación de conexión a BD, pooling, etc...
         launch();
     }
 }

@@ -13,5 +13,8 @@ module com.minimercado.javafxinventario {
     requires spring.security.crypto;
 
     opens com.minimercado.javafxinventario to javafx.fxml;
+    opens com.minimercado.javafxinventario.controllers to javafx.fxml;
     exports com.minimercado.javafxinventario;
+    exports com.minimercado.javafxinventario.controllers;
+    exports com.minimercado.javafxinventario.modules;
 }
