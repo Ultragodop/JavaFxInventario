@@ -16,6 +16,7 @@ import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
@@ -25,6 +26,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.util.Callback;
 import javafx.util.StringConverter;
+import javafx.util.converter.DoubleStringConverter;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -184,6 +186,31 @@ public class VentaController implements Initializable {
         descuentoColumn.setCellValueFactory(new PropertyValueFactory<>("descuento"));
         totalColumn.setCellValueFactory(new PropertyValueFactory<>("total"));
         
+        // Make the table editable
+        saleItemsTable.setEditable(true);
+        
+        // Configure the price column to be editable
+        precioUnitarioColumn.setCellFactory(TextFieldTableCell.forTableColumn(new DoubleStringConverter()));
+        precioUnitarioColumn.setEditable(true);
+        
+        // Add event handler for price changes
+        precioUnitarioColumn.setOnEditCommit(event -> {
+            ProductoVenta producto = event.getRowValue();
+            double oldPrice = producto.getPrecioUnitario();
+            double newPrice = event.getNewValue();
+            
+            // Set the new price and update the table
+            producto.setPrecioUnitario(newPrice);
+            
+            // Update totals
+            updateTotals();
+            
+            // Show confirmation message
+            statusLabel.setText("Precio modificado: " + producto.getNombre() + 
+                            " - Precio anterior: $" + String.format("%.2f", oldPrice) + 
+                            " - Nuevo precio: $" + String.format("%.2f", newPrice));
+        });
+        
         // Setup action column with buttons (+ and - buttons)
         setupActionColumn();
     }
@@ -200,7 +227,6 @@ public class VentaController implements Initializable {
                         // Setup button actions
                         btnPlus.setOnAction((ActionEvent event) -> {
                             ProductoVenta producto = getTableView().getItems().get(getIndex());
-                            
                             // Check if there's enough stock before incrementing
                             try {
                                 Product actualProduct = inventoryDAO.getProductByBarcode(producto.getCodigo());
@@ -213,7 +239,6 @@ public class VentaController implements Initializable {
                                 statusLabel.setText("Error al verificar stock: " + e.getMessage());
                                 return;
                             }
-                            
                             producto.setCantidad(producto.getCantidad() + 1);
                             updateTotals();
                         });
@@ -365,7 +390,6 @@ public class VentaController implements Initializable {
             
             // Update totals after adding product
             updateTotals();
-            
         } catch (Exception e) {
             statusLabel.setText("Error al agregar producto: " + e.getMessage());
             System.err.println("Error al agregar producto: " + e.getMessage());
@@ -399,7 +423,6 @@ public class VentaController implements Initializable {
             nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
             priceCol.setCellValueFactory(new PropertyValueFactory<>("sellingPrice"));
             stockCol.setCellValueFactory(new PropertyValueFactory<>("stockQuantity"));
-            
             resultTable.getColumns().addAll(barcodeCol, nameCol, priceCol, stockCol);
             
             // Add search functionality
@@ -538,7 +561,6 @@ public class VentaController implements Initializable {
                 restanteMixtoField.setText("0.00");
                 return;
             }
-            
             totalFinalText = totalFinalText.replace(',', '.');
             double total = Double.parseDouble(totalFinalText);
             double sumaPagos = 0;
@@ -548,17 +570,14 @@ public class VentaController implements Initializable {
                 String montoText = efectivoMixtoField.getText().trim().replace(',', '.');
                 sumaPagos += Double.parseDouble(montoText);
             }
-            
             if (tarjetaCheck.isSelected() && !tarjetaMixtoField.getText().trim().isEmpty()) {
                 String montoText = tarjetaMixtoField.getText().trim().replace(',', '.');
                 sumaPagos += Double.parseDouble(montoText);
             }
-            
             if (transferenciaCheck.isSelected() && !transferenciaMixtoField.getText().trim().isEmpty()) {
                 String montoText = transferenciaMixtoField.getText().trim().replace(',', '.');
                 sumaPagos += Double.parseDouble(montoText);
             }
-            
             if (billeteraCheck.isSelected() && !billeteraMixtoField.getText().trim().isEmpty()) {
                 String montoText = billeteraMixtoField.getText().trim().replace(',', '.');
                 sumaPagos += Double.parseDouble(montoText);
@@ -592,6 +611,8 @@ public class VentaController implements Initializable {
         montoField.setText(String.format("%.2f", totalVenta + totalDescuentos));
         descuentoField.setText(String.format("%.2f", totalDescuentos));
         totalFinalField.setText(String.format("%.2f", finalTotal));
+        
+        calcularCambioMonto();
     }
     
     @FXML
@@ -642,7 +663,6 @@ public class VentaController implements Initializable {
         
         // Clear the sale
         limpiarVenta();
-        
         statusLabel.setText("Venta procesada correctamente");
     }
     
@@ -723,7 +743,6 @@ public class VentaController implements Initializable {
                 }
                 break;
         }
-        
         return true;
     }
     
@@ -760,7 +779,7 @@ public class VentaController implements Initializable {
                 return;
             }
             
-            // Verify that the transaction was correctly recorded in the database
+            // Verify that the transaction was correctly recorded in the databases
             try {
                 // This is just a debug check - in a real application, we might not need this
                 List<Transaction> recentTransactions = accountingModule.getTransactionsByPeriod("diario");
@@ -840,7 +859,6 @@ public class VentaController implements Initializable {
         transferenciaMixtoField.clear();
         billeteraMixtoField.clear();
         restanteMixtoField.clear();
-        
         efectivoCheck.setSelected(false);
         tarjetaCheck.setSelected(false);
         transferenciaCheck.setSelected(false);
@@ -1009,7 +1027,7 @@ public class VentaController implements Initializable {
             buscarYAgregarProducto(barcode);
         }
     }
-
+    
     // Inner class to represent a product in the sale
     public static class ProductoVenta {
         private final SimpleStringProperty codigo;
@@ -1048,6 +1066,12 @@ public class VentaController implements Initializable {
 
         public double getPrecioUnitario() {
             return precioUnitario.get();
+        }
+
+        public void setPrecioUnitario(double precioUnitario) {
+            this.precioUnitario.set(precioUnitario);
+            // Update total when price changes
+            total.set(calcularTotal());
         }
 
         public double getDescuento() {

@@ -129,11 +129,15 @@ public class AccountingDAO {
         // Insert journal line items (debits and credits)
         double amount = transaction.getAmount();
         
+        // Get account IDs by their account codes instead of using hardcoded IDs
+        int cashAccountId = getAccountIdByCode(conn, "1000");
+        int salesRevenueAccountId = getAccountIdByCode(conn, "4000");
+        
         // Debit Cash (or Accounts Receivable based on payment type)
-        insertJournalLineItem(conn, journalEntryId, 1000, "Cash receipt", amount, 0);
+        insertJournalLineItem(conn, journalEntryId, cashAccountId, "Cash receipt", amount, 0);
         
         // Credit Sales Revenue
-        insertJournalLineItem(conn, journalEntryId, 4000, "Sales revenue", 0, amount);
+        insertJournalLineItem(conn, journalEntryId, salesRevenueAccountId, "Sales revenue", 0, amount);
     }
     
     /**
@@ -180,11 +184,15 @@ public class AccountingDAO {
         // Insert journal line items (reversed entries)
         double amount = Math.abs(transaction.getAmount());
         
+        // Get account IDs by their account codes instead of using hardcoded IDs
+        int cashAccountId = getAccountIdByCode(conn, "1000");
+        int salesRevenueAccountId = getAccountIdByCode(conn, "4000");
+        
         // Credit Cash (reversing the original debit)
-        insertJournalLineItem(conn, journalEntryId, 1000, "Reversal of cash receipt", 0, amount);
+        insertJournalLineItem(conn, journalEntryId, cashAccountId, "Reversal of cash receipt", 0, amount);
         
         // Debit Sales Revenue (reversing the original credit)
-        insertJournalLineItem(conn, journalEntryId, 4000, "Reversal of sales revenue", amount, 0);
+        insertJournalLineItem(conn, journalEntryId, salesRevenueAccountId, "Reversal of sales revenue", amount, 0);
     }
     
     /**
@@ -211,6 +219,27 @@ public class AccountingDAO {
             stmt.setDouble(5, credit);
             
             stmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Retrieves the account ID for a given account code.
+     *
+     * @param conn Database connection
+     * @param accountCode The account code to look up
+     * @return The account ID
+     * @throws SQLException if an error occurs or the account code doesn't exist
+     */
+    private int getAccountIdByCode(Connection conn, String accountCode) throws SQLException {
+        String sql = "SELECT id FROM accounts WHERE account_code = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, accountCode);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("id");
+                }
+                throw new SQLException("Account with code '" + accountCode + "' not found in accounts table");
+            }
         }
     }
 
