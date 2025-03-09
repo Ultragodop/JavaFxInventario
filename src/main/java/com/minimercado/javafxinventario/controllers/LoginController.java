@@ -1,63 +1,90 @@
 package com.minimercado.javafxinventario.controllers;
 
-import javafx.application.Platform;
-import javafx.event.ActionEvent;
+import com.minimercado.javafxinventario.modules.UserAuthentication;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
-import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.TextField;
 import javafx.stage.Stage;
-import com.minimercado.javafxinventario.modules.SecurityModule;
 
-import java.util.Objects;
+import java.io.IOException;
 
+/**
+ * Controller for the login view
+ */
 public class LoginController {
+    
     @FXML private TextField usernameField;
     @FXML private PasswordField passwordField;
-    @FXML private TextField adminCodeField;
-    @FXML private Label errorLabel;
-
-    private SecurityModule securityModule = new SecurityModule();
-
+    @FXML private Button loginButton;
+    
+    private UserAuthentication auth;
+    
     @FXML
-    protected void handleLogin(ActionEvent event) {
-        String username = usernameField.getText();
-        String userpasswd = passwordField.getText();
-        boolean authenticated = securityModule.login(username, userpasswd);
-        if (authenticated) {
-            errorLabel.setText("Acceso concedido");
+    private void initialize() {
+        auth = UserAuthentication.getInstance();
+        
+        // Set focus on username field
+        usernameField.requestFocus();
+        
+        // Add enter key handler to perform login
+        passwordField.setOnAction(event -> handleLogin());
+    }
+    
+    /**
+     * Handle login button click
+     */
+    @FXML
+    private void handleLogin() {
+        String username = usernameField.getText().trim();
+        String password = passwordField.getText();
+        
+        // Basic validation
+        if (username.isEmpty() || password.isEmpty()) {
+            showAlert("Error", "Missing Information", 
+                    "Please enter both username and password.");
+            return;
+        }
+        
+        // Attempt authentication
+        if (auth.authenticate(username, password)) {
             try {
-                // Close the current stage
-                // Load and show new scene in a new stage
-                Parent root = FXMLLoader.load(Objects.requireNonNull(getClass().getResource("inventory-view.fxml")));
-                Scene scene = new Scene(root, 800, 600);
-                Stage newStage = new Stage();
-                newStage.setScene(scene);
-                newStage.show();
-                Stage currentStage = (Stage)((Node)event.getSource()).getScene().getWindow();
-                currentStage.close();
-            } catch(Exception e) {
-                errorLabel.setText("Error al cargar inventario: " + e.getMessage());
+                // Load the main menu
+                FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/main-menu.fxml"));
+                Parent root = loader.load();
+                
+                Scene scene = new Scene(root);
+                Stage stage = (Stage) loginButton.getScene().getWindow();
+                stage.setScene(scene);
+                stage.setTitle("Sistema de Gestión de Inventario - Bienvenido " + username);
+                
+                // For testing, show role
+                System.out.println("Logged in as: " + username + ", Role: " + auth.getUserRole());
+                
+            } catch (IOException e) {
+                e.printStackTrace();
+                showAlert("Error", "Navigation Error", 
+                        "Could not load the main menu: " + e.getMessage());
             }
         } else {
-            errorLabel.setText("Credenciales incorrectas");
+            showAlert("Authentication Failed", "Invalid Credentials", 
+                    "The username or password you entered is incorrect.");
+            passwordField.clear();
         }
     }
-
-    @FXML
-    protected void handleRegister() {
-        String username = usernameField.getText();
-        String userpasswd = passwordField.getText();
-        String adminCode = adminCodeField.getText();
-        try {
-            boolean registered = securityModule.registerAdmin(username, userpasswd, adminCode);
-            if (registered) {
-                errorLabel.setText("Registro exitoso. !TE PERMITO! !OJO YO TE TENGO QUE PERMITIR! iniciar sesión.");
-            }
-        } catch (Exception e) {
-            errorLabel.setText("Error: " + e.getMessage());
-        }
+    
+    /**
+     * Shows an alert dialog
+     */
+    private void showAlert(String title, String header, String content) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText(header);
+        alert.setContentText(content);
+        alert.showAndWait();
     }
 }

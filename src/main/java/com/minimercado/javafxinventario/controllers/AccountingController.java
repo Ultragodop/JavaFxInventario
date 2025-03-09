@@ -1,23 +1,494 @@
 package com.minimercado.javafxinventario.controllers;
 
-import com.minimercado.javafxinventario.modules.AccountingModule;
+import com.minimercado.javafxinventario.DAO.AccountingDAO;
+import com.minimercado.javafxinventario.modules.AccountingEntry;
 import com.minimercado.javafxinventario.modules.Transaction;
-import java.util.List;
+import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.fxml.FXML;
+import javafx.fxml.Initializable;
+import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.VBox;
+import javafx.util.Callback;
+import javafx.util.StringConverter;
 
-public class AccountingController {
-    private AccountingModule accountingModule = new AccountingModule();
+import java.net.URL;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.ResourceBundle;
+
+public class AccountingController implements Initializable {
+
+    @FXML private TabPane mainTabPane;
     
-    public void recordTransaction(Transaction tx) {
-        accountingModule.recordTransaction(tx);
+    // Transactions tab components
+    @FXML private TableView<Transaction> transactionsTable;
+    @FXML private TableColumn<Transaction, String> transactionIdColumn;
+    @FXML private TableColumn<Transaction, String> transactionTypeColumn;
+    @FXML private TableColumn<Transaction, LocalDateTime> transactionDateColumn;
+    @FXML private TableColumn<Transaction, Double> transactionAmountColumn;
+    @FXML private TableColumn<Transaction, String> transactionDescriptionColumn;
+    @FXML private DatePicker startDatePicker;
+    @FXML private DatePicker endDatePicker;
+    @FXML private Button searchTransactionsButton;
+    @FXML private Label transactionStatusLabel;
+    
+    // Journal Entries tab components
+    @FXML private TableView<Map<String, Object>> journalEntriesTable;
+    @FXML private TableColumn<Map<String, Object>, LocalDate> entryDateColumn;
+    @FXML private TableColumn<Map<String, Object>, String> referenceColumn;
+    @FXML private TableColumn<Map<String, Object>, String> entryDescriptionColumn;
+    @FXML private TableColumn<Map<String, Object>, Double> entryDebitColumn;
+    @FXML private TableColumn<Map<String, Object>, Double> entryCreditColumn;
+    @FXML private ComboBox<String> accountComboBox;
+    @FXML private DatePicker ledgerStartDatePicker;
+    @FXML private DatePicker ledgerEndDatePicker;
+    @FXML private Button searchLedgerButton;
+    @FXML private Label journalStatusLabel;
+    
+    // Reports tab components
+    @FXML private DatePicker reportStartDatePicker;
+    @FXML private DatePicker reportEndDatePicker;
+    @FXML private Button generateReportButton;
+    @FXML private VBox reportResultsBox;
+    @FXML private Label revenueValueLabel;
+    @FXML private Label expensesValueLabel;
+    @FXML private Label netIncomeValueLabel;
+    
+    // New Entry tab components
+    @FXML private DatePicker entryDatePicker;
+    @FXML private TextField referenceField;
+    @FXML private TextField descriptionField;
+    @FXML private VBox lineItemsContainer;
+    @FXML private Button addLineItemButton;
+    @FXML private Button saveEntryButton;
+    @FXML private Label newEntryStatusLabel;
+    
+    private AccountingDAO accountingDAO = new AccountingDAO();
+    private ObservableList<Transaction> transactionsList = FXCollections.observableArrayList();
+    private Map<String, String> accountMap = new HashMap<>(); // For account code to name mapping
+    private DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    
+    @Override
+    public void initialize(URL url, ResourceBundle resourceBundle) {
+        // Set up the transactions table
+        setupTransactionsTable();
+        
+        // Set up the journal entries table
+        setupJournalEntriesTable();
+        
+        // Initialize date pickers
+        initDatePickers();
+        
+        // Load accounts into the combo box
+        loadAccounts();
+        
+        // Set default values
+        setDefaultDateRanges();
+        
+        // Load initial data
+        loadTransactions();
     }
     
-    public List<Transaction> getTransactions() {
-        return accountingModule.getTransactions();
+    private void setupTransactionsTable() {
+        transactionIdColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getId()));
+        transactionTypeColumn.setCellValueFactory(cellData -> new SimpleStringProperty(cellData.getValue().getType()));
+        transactionDateColumn.setCellValueFactory(cellData -> 
+            new SimpleObjectProperty<>(cellData.getValue().getTimestamp()));
+        transactionAmountColumn.setCellValueFactory(cellData -> 
+            new SimpleDoubleProperty(cellData.getValue().getAmount()).asObject());
+        transactionDescriptionColumn.setCellValueFactory(cellData -> 
+            new SimpleStringProperty(cellData.getValue().getDescription()));
+        
+        // Format the date column
+        transactionDateColumn.setCellFactory(column -> new TableCell<Transaction, LocalDateTime>() {
+            @Override
+            protected void updateItem(LocalDateTime item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+                }
+            }
+        });
+        
+        // Format the amount column with 2 decimal places
+        transactionAmountColumn.setCellFactory(column -> new TableCell<Transaction, Double>() {
+            @Override
+            protected void updateItem(Double item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("%.2f", item));
+                    // Color negative values in red
+                    if (item < 0) {
+                        setStyle("-fx-text-fill: red;");
+                    } else {
+                        setStyle("-fx-text-fill: green;");
+                    }
+                }
+            }
+        });
+        
+        transactionsTable.setItems(transactionsList);
     }
     
-    public String getFinancialReport() {
-        return accountingModule.generateFinancialReport();
+    private void setupJournalEntriesTable() {
+        entryDateColumn.setCellValueFactory(cellData -> 
+            new SimpleObjectProperty<>((LocalDate) cellData.getValue().get("entryDate")));
+        referenceColumn.setCellValueFactory(cellData -> 
+            new SimpleStringProperty((String) cellData.getValue().get("reference")));
+        entryDescriptionColumn.setCellValueFactory(cellData -> 
+            new SimpleStringProperty((String) cellData.getValue().get("lineDescription")));
+        entryDebitColumn.setCellValueFactory(cellData -> 
+            new SimpleDoubleProperty((Double) cellData.getValue().get("debit")).asObject());
+        entryCreditColumn.setCellValueFactory(cellData -> 
+            new SimpleDoubleProperty((Double) cellData.getValue().get("credit")).asObject());
+            
+        // Format the debit and credit columns with 2 decimal places
+        entryDebitColumn.setCellFactory(column -> new TableCell<Map<String, Object>, Double>() {
+            @Override
+            protected void updateItem(Double item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item == 0) {
+                    setText(null);
+                } else {
+                    setText(String.format("%.2f", item));
+                }
+            }
+        });
+        
+        entryCreditColumn.setCellFactory(column -> new TableCell<Map<String, Object>, Double>() {
+            @Override
+            protected void updateItem(Double item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item == 0) {
+                    setText(null);
+                } else {
+                    setText(String.format("%.2f", item));
+                }
+            }
+        });
     }
     
-    // ...otros métodos de control...
+    private void initDatePickers() {
+        // Set converters for date pickers
+        StringConverter<LocalDate> dateConverter = new StringConverter<LocalDate>() {
+            @Override
+            public String toString(LocalDate date) {
+                return date != null ? dateFormatter.format(date) : "";
+            }
+            
+            @Override
+            public LocalDate fromString(String string) {
+                return string != null && !string.isEmpty() ? LocalDate.parse(string, dateFormatter) : null;
+            }
+        };
+        
+        startDatePicker.setConverter(dateConverter);
+        endDatePicker.setConverter(dateConverter);
+        ledgerStartDatePicker.setConverter(dateConverter);
+        ledgerEndDatePicker.setConverter(dateConverter);
+        reportStartDatePicker.setConverter(dateConverter);
+        reportEndDatePicker.setConverter(dateConverter);
+        entryDatePicker.setConverter(dateConverter);
+        
+        // Set date picker prompts
+        startDatePicker.setPromptText("Fecha inicio");
+        endDatePicker.setPromptText("Fecha fin");
+        ledgerStartDatePicker.setPromptText("Fecha inicio");
+        ledgerEndDatePicker.setPromptText("Fecha fin");
+        reportStartDatePicker.setPromptText("Fecha inicio");
+        reportEndDatePicker.setPromptText("Fecha fin");
+        entryDatePicker.setPromptText("Fecha de asiento");
+    }
+    
+    private void loadAccounts() {
+        try {
+            List<Map<String, Object>> accounts = accountingDAO.getAllAccounts();
+            ObservableList<String> accountCodes = FXCollections.observableArrayList();
+            
+            for (Map<String, Object> account : accounts) {
+                String code = (String) account.get("accountCode");
+                String name = (String) account.get("name");
+                String displayText = code + " - " + name;
+                
+                accountCodes.add(displayText);
+                accountMap.put(displayText, code);
+            }
+            
+            accountComboBox.setItems(accountCodes);
+            
+            // Select the first account by default if available
+            if (!accountCodes.isEmpty()) {
+                accountComboBox.getSelectionModel().selectFirst();
+            }
+            
+        } catch (Exception e) {
+            journalStatusLabel.setText("Error al cargar cuentas: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    private void setDefaultDateRanges() {
+        // Set default date ranges to current month
+        LocalDate now = LocalDate.now();
+        LocalDate firstOfMonth = now.withDayOfMonth(1);
+        
+        startDatePicker.setValue(firstOfMonth);
+        endDatePicker.setValue(now);
+        
+        ledgerStartDatePicker.setValue(firstOfMonth);
+        ledgerEndDatePicker.setValue(now);
+        
+        reportStartDatePicker.setValue(firstOfMonth);
+        reportEndDatePicker.setValue(now);
+        
+        entryDatePicker.setValue(now);
+    }
+    
+    private void loadTransactions() {
+        try {
+            LocalDate startDate = startDatePicker.getValue();
+            LocalDate endDate = endDatePicker.getValue();
+            
+            if (startDate == null || endDate == null) {
+                transactionStatusLabel.setText("Por favor seleccione un rango de fechas válido");
+                return;
+            }
+            
+            List<Transaction> transactions = accountingDAO.getTransactionsByDateRange(startDate, endDate);
+            transactionsList.setAll(transactions);
+            
+            transactionStatusLabel.setText("Se encontraron " + transactions.size() + " transacciones");
+            
+        } catch (Exception e) {
+            transactionStatusLabel.setText("Error al cargar transacciones: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    @FXML
+    private void handleSearchTransactions() {
+        loadTransactions();
+    }
+    
+    @FXML
+    private void handleSearchLedger() {
+        try {
+            LocalDate startDate = ledgerStartDatePicker.getValue();
+            LocalDate endDate = ledgerEndDatePicker.getValue();
+            String selectedAccountItem = accountComboBox.getValue();
+            
+            if (startDate == null || endDate == null || selectedAccountItem == null) {
+                journalStatusLabel.setText("Por favor complete todos los campos");
+                return;
+            }
+            
+            String accountCode = accountMap.get(selectedAccountItem);
+            if (accountCode == null) {
+                journalStatusLabel.setText("Cuenta no válida");
+                return;
+            }
+            
+            List<Map<String, Object>> entries = accountingDAO.getLedgerEntries(accountCode, startDate, endDate);
+            journalEntriesTable.setItems(FXCollections.observableArrayList(entries));
+            
+            // Calculate and display the balance
+            double balance = accountingDAO.getAccountBalance(accountCode, endDate);
+            journalStatusLabel.setText("Balance de la cuenta: " + String.format("%.2f", balance));
+            
+        } catch (Exception e) {
+            journalStatusLabel.setText("Error al buscar asientos: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    @FXML
+    private void handleGenerateReport() {
+        try {
+            LocalDate startDate = reportStartDatePicker.getValue();
+            LocalDate endDate = reportEndDatePicker.getValue();
+            
+            if (startDate == null || endDate == null) {
+                journalStatusLabel.setText("Por favor seleccione un rango de fechas válido");
+                return;
+            }
+            
+            Map<String, Double> incomeStatement = accountingDAO.getIncomeStatement(startDate, endDate);
+            
+            double revenue = incomeStatement.get("totalRevenue");
+            double expenses = incomeStatement.get("totalExpenses");
+            double netIncome = incomeStatement.get("netIncome");
+            
+            // Update the UI labels
+            revenueValueLabel.setText(String.format("%.2f", revenue));
+            expensesValueLabel.setText(String.format("%.2f", expenses));
+            netIncomeValueLabel.setText(String.format("%.2f", netIncome));
+            
+            // Style the net income based on whether it's positive or negative
+            if (netIncome >= 0) {
+                netIncomeValueLabel.setStyle("-fx-text-fill: green;");
+            } else {
+                netIncomeValueLabel.setStyle("-fx-text-fill: red;");
+            }
+            
+            // Show the report results box
+            reportResultsBox.setVisible(true);
+            
+        } catch (Exception e) {
+            journalStatusLabel.setText("Error al generar reporte: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    @FXML
+    private void handleAddLineItem() {
+        // Create a new line item row in the form
+        GridPane lineItemRow = createLineItemRow();
+        lineItemsContainer.getChildren().add(lineItemRow);
+    }
+    
+    private GridPane createLineItemRow() {
+        GridPane row = new GridPane();
+        row.setHgap(10);
+        row.setVgap(5);
+        
+        // Account combobox
+        ComboBox<String> accountCombo = new ComboBox<>();
+        accountCombo.setItems(accountComboBox.getItems());
+        accountCombo.setPrefWidth(200);
+        
+        // Description field
+        TextField descField = new TextField();
+        descField.setPromptText("Descripción");
+        descField.setPrefWidth(200);
+        
+        // Debit amount field
+        TextField debitField = new TextField();
+        debitField.setPromptText("Débito");
+        debitField.setPrefWidth(100);
+        
+        // Credit amount field
+        TextField creditField = new TextField();
+        creditField.setPromptText("Crédito");
+        creditField.setPrefWidth(100);
+        
+        // Remove button
+        Button removeButton = new Button("X");
+        removeButton.setStyle("-fx-background-color: #ff6666;");
+        removeButton.setOnAction(e -> lineItemsContainer.getChildren().remove(row));
+        
+        row.add(accountCombo, 0, 0);
+        row.add(descField, 1, 0);
+        row.add(debitField, 2, 0);
+        row.add(creditField, 3, 0);
+        row.add(removeButton, 4, 0);
+        
+        return row;
+    }
+    
+    @FXML
+    private void handleSaveEntry() {
+        try {
+            LocalDate entryDate = entryDatePicker.getValue();
+            String reference = referenceField.getText().trim();
+            String description = descriptionField.getText().trim();
+            
+            if (entryDate == null || reference.isEmpty() || description.isEmpty()) {
+                newEntryStatusLabel.setText("Por favor complete los campos obligatorios");
+                return;
+            }
+            
+            AccountingEntry entry = new AccountingEntry(entryDate, reference, description);
+            entry.setCreatedBy("Usuario");
+            
+            double totalDebits = 0;
+            double totalCredits = 0;
+            
+            // Process each line item
+            for (int i = 0; i < lineItemsContainer.getChildren().size(); i++) {
+                GridPane row = (GridPane) lineItemsContainer.getChildren().get(i);
+                
+                ComboBox<String> accountCombo = (ComboBox<String>) row.getChildren().get(0);
+                TextField descField = (TextField) row.getChildren().get(1);
+                TextField debitField = (TextField) row.getChildren().get(2);
+                TextField creditField = (TextField) row.getChildren().get(3);
+                
+                String accountDisplay = accountCombo.getValue();
+                String lineDescription = descField.getText().trim();
+                
+                if (accountDisplay == null || lineDescription.isEmpty()) {
+                    continue; // Skip incomplete line items
+                }
+                
+                String accountCode = accountMap.get(accountDisplay);
+                
+                double debitAmount = 0;
+                double creditAmount = 0;
+                
+                if (!debitField.getText().trim().isEmpty()) {
+                    debitAmount = Double.parseDouble(debitField.getText().trim().replace(",", "."));
+                }
+                
+                if (!creditField.getText().trim().isEmpty()) {
+                    creditAmount = Double.parseDouble(creditField.getText().trim().replace(",", "."));
+                }
+                
+                if (debitAmount > 0 || creditAmount > 0) {
+                    entry.addLineItem(accountCode, lineDescription, debitAmount, creditAmount);
+                    totalDebits += debitAmount;
+                    totalCredits += creditAmount;
+                }
+            }
+            
+            // Validate the entry
+            if (entry.getLineItems().isEmpty()) {
+                newEntryStatusLabel.setText("Ingrese al menos una línea de asiento");
+                return;
+            }
+            
+            if (Math.abs(totalDebits - totalCredits) > 0.01) {
+                newEntryStatusLabel.setText("Error: Los débitos y créditos no están balanceados");
+                return;
+            }
+            
+            // Save the entry (this would typically call the DAO)
+            // For now, just post the entry
+            boolean posted = entry.post();
+            
+            if (posted) {
+                newEntryStatusLabel.setText("Asiento creado y publicado correctamente");
+                clearNewEntryForm();
+            } else {
+                newEntryStatusLabel.setText("Error al publicar el asiento: no está balanceado");
+            }
+            
+        } catch (NumberFormatException e) {
+            newEntryStatusLabel.setText("Error en formato de números: " + e.getMessage());
+        } catch (Exception e) {
+            newEntryStatusLabel.setText("Error al guardar asiento: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    private void clearNewEntryForm() {
+        entryDatePicker.setValue(LocalDate.now());
+        referenceField.clear();
+        descriptionField.clear();
+        lineItemsContainer.getChildren().clear();
+        
+        // Add an initial empty line item
+        handleAddLineItem();
+    }
 }

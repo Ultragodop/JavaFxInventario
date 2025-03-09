@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17" 
+          xmlns:fx="http://javafx.com/fxml/1" 
+          fx:controller="com.minimercado.javafxinventario.controllers.VentaController"
+          prefHeight="600.0" prefWidth="900.0">
+    <top>
+        <HBox alignment="CENTER_LEFT" prefHeight="50.0" prefWidth="200.0" spacing="10.0" style="-fx-background-color: #f0f0f0;">
+            <padding>
+                <Insets bottom="5.0" left="10.0" right="10.0" top="5.0"/>
+            </padding>
+            <Label text="Sistema de Ventas" textFill="#2c3e50">
+                <font>
+                    <Font name="System Bold" size="18.0"/>
+                </font>
+            </Label>
+            <Pane HBox.hgrow="ALWAYS"/>
+            <Label fx:id="connectionStatusLabel" text="En línea" textFill="GREEN"/>
+            <Button fx:id="offlineModeButton" onAction="#handleOfflineMode" text="Modo Offline"/>
+            <Button fx:id="opcionesIdiomaButton" onAction="#handleOpcionesIdioma" text="Idioma"/>
+            <Button fx:id="toggleClienteDisplayButton" onAction="#handleToggleClienteDisplay" text="Mostrar Pantalla Cliente"/>
+        </HBox>
+    </top>
+    <center>
+        <SplitPane dividerPositions="0.7" orientation="VERTICAL" BorderPane.alignment="CENTER">
+            <VBox spacing="10.0">
+                <padding>
+                    <Insets bottom="10.0" left="10.0" right="10.0" top="10.0"/>
+                </padding>
+                <HBox spacing="10.0">
+                    <Label text="Código de Barras:"/>
+                    <TextField fx:id="codigoBarraField" onAction="#handleCodigoBarraAction" prefWidth="250.0" promptText="Escanear o ingresar código"/>
+                    <Button fx:id="agregarProductoButton" onAction="#handleAgregarProducto" text="Agregar"/>
+                    <Button onAction="#handleBuscarProductoManual" text="Buscar Producto (F2)"/>
+                </HBox>
+                <TableView fx:id="saleItemsTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="codigoColumn" prefWidth="100.0" text="Código"/>
+                        <TableColumn fx:id="nombreColumn" prefWidth="200.0" text="Producto"/>
+                        <TableColumn fx:id="cantidadColumn" prefWidth="80.0" text="Cantidad"/>
+                        <TableColumn fx:id="precioUnitarioColumn" prefWidth="100.0" text="Precio Unit."/>
+                        <TableColumn fx:id="descuentoColumn" prefWidth="80.0" text="Descuento"/>
+                        <TableColumn fx:id="totalColumn" prefWidth="100.0" text="Total"/>
+                        <TableColumn fx:id="accionesColumn" prefWidth="120.0" text="Acciones"/>
+                    </columns>
+                </TableView>
+            </VBox>
+            <VBox spacing="10.0">
+                <padding>
+                    <Insets bottom="10.0" left="10.0" right="10.0" top="10.0"/>
+                </padding>
+                <HBox spacing="20.0">
+                    <VBox alignment="CENTER_LEFT" spacing="5.0" HBox.hgrow="ALWAYS">
+                        <Label text="Detalles de la Venta" textFill="#2c3e50">
+                            <font>
+                                <Font name="System Bold" size="14.0"/>
+                            </font>
+                        </Label>
+                        <Label fx:id="detalleVentaLabel" text="Registre los productos para iniciar la venta"/>
+                    </VBox>
+                    <GridPane hgap="10.0" vgap="5.0">
+                        <columnConstraints>
+                            <ColumnConstraints halignment="RIGHT" hgrow="SOMETIMES" minWidth="10.0"/>
+                            <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0"/>
+                        </columnConstraints>
+                        <rowConstraints>
+                            <RowConstraints minHeight="10.0" vgrow="SOMETIMES"/>
+                            <RowConstraints minHeight="10.0" vgrow="SOMETIMES"/>
+                            <RowConstraints minHeight="10.0" vgrow="SOMETIMES"/>
+                        </rowConstraints>
+                        <Label text="Monto:" GridPane.rowIndex="0"/>
+                        <Label text="Descuento:" GridPane.rowIndex="1"/>
+                        <Label text="Total Final:" GridPane.rowIndex="2"/>
+                        <TextField fx:id="montoField" editable="false" text="0.00" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                        <TextField fx:id="descuentoField" editable="false" text="0.00" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                        <TextField fx:id="totalFinalField" editable="false" style="-fx-font-weight: bold;" text="0.00" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                    </GridPane>
+                </HBox>
+            </VBox>
+        </SplitPane>
+    </center>
+    <right>
+        <VBox prefWidth="300.0" spacing="10.0" style="-fx-background-color: #f8f9fa; -fx-border-color: #e9ecef; -fx-border-width: 0 0 0 1;">
+            <padding>
+                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0"/>
+            </padding>
+            <Label text="Forma de Pago" textFill="#2c3e50">
+                <font>
+                    <Font name="System Bold" size="14.0"/>
+                </font>
+                <VBox.margin>
+                    <Insets bottom="5.0"/>
+                </VBox.margin>
+            </Label>
+            <TabPane fx:id="metodoPagoTabPane" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
+                <Tab text="Efectivo">
+                    <VBox fx:id="efectivoContainer" spacing="10.0">
+                        <padding>
+                            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0"/>
+                        </padding>
+                        <GridPane hgap="10.0" vgap="10.0">
+                            <columnConstraints>
+                                <ColumnConstraints halignment="RIGHT" hgrow="SOMETIMES" minWidth="10.0"/>
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0"/>
+                            </columnConstraints>
+                            <rowConstraints>
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                            </rowConstraints>
+                            <Label text="Monto recibido:"/>
+                            <TextField fx:id="montoRecibidoField" onKeyReleased="#calcularCambio" promptText="0.00" GridPane.columnIndex="1"/>
+                            <Label text="Cambio:" GridPane.rowIndex="1"/>
+                            <TextField fx:id="cambioField" editable="false" text="0.00" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                        </GridPane>
+                    </VBox>
+                </Tab>
+                <Tab text="Tarjeta">
+                    <VBox fx:id="tarjetaContainer" spacing="10.0">
+                        <padding>
+                            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0"/>
+                        </padding>
+                        <GridPane hgap="10.0" vgap="10.0">
+                            <columnConstraints>
+                                <ColumnConstraints halignment="RIGHT" hgrow="SOMETIMES" minWidth="10.0"/>
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0"/>
+                            </columnConstraints>
+                            <rowConstraints>
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                            </rowConstraints>
+                            <Label text="Tipo de tarjeta:"/>
+                            <ComboBox fx:id="tipoTarjetaCombo" prefWidth="150.0" promptText="Seleccionar" GridPane.columnIndex="1"/>
+                            <Label text="Referencia:" GridPane.rowIndex="1"/>
+                            <TextField fx:id="referenciaTarjetaField" promptText="Número de referencia" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                        </GridPane>
+                    </VBox>
+                </Tab>
+                <Tab text="Transferencia">
+                    <VBox fx:id="transferenciaContainer" spacing="10.0">
+                        <padding>
+                            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0"/>
+                        </padding>
+                        <GridPane hgap="10.0" vgap="10.0">
+                            <columnConstraints>
+                                <ColumnConstraints halignment="RIGHT" hgrow="SOMETIMES" minWidth="10.0"/>
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0"/>
+                            </columnConstraints>
+                            <rowConstraints>
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                            </rowConstraints>
+                            <Label text="Banco:"/>
+                            <ComboBox fx:id="bancoCombo" prefWidth="150.0" promptText="Seleccionar" GridPane.columnIndex="1"/>
+                            <Label text="Nº Comprobante:" GridPane.rowIndex="1"/>
+                            <TextField fx:id="comprobanteField" promptText="Número de comprobante" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                        </GridPane>
+                    </VBox>
+                </Tab>
+                <Tab text="Billetera Digital">
+                    <VBox fx:id="billeteraContainer" spacing="10.0">
+                        <padding>
+                            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0"/>
+                        </padding>
+                        <GridPane hgap="10.0" vgap="10.0">
+                            <columnConstraints>
+                                <ColumnConstraints halignment="RIGHT" hgrow="SOMETIMES" minWidth="10.0"/>
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0"/>
+                            </columnConstraints>
+                            <rowConstraints>
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                            </rowConstraints>
+                            <Label text="Proveedor:"/>
+                            <ComboBox fx:id="proveedorBilleteraCombo" prefWidth="150.0" promptText="Seleccionar" GridPane.columnIndex="1"/>
+                            <Label text="Confirmación:" GridPane.rowIndex="1"/>
+                            <TextField fx:id="confirmacionBilleteraField" promptText="Código de confirmación" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                        </GridPane>
+                    </VBox>
+                </Tab>
+                <Tab text="Pago Mixto">
+                    <VBox spacing="10.0">
+                        <padding>
+                            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0"/>
+                        </padding>
+                        <HBox spacing="10.0">
+                            <CheckBox fx:id="efectivoCheck" onAction="#toggleMixedPaymentOption" text="Efectivo"/>
+                            <CheckBox fx:id="tarjetaCheck" onAction="#toggleMixedPaymentOption" text="Tarjeta"/>
+                            <CheckBox fx:id="transferenciaCheck" onAction="#toggleMixedPaymentOption" text="Transferencia"/>
+                            <CheckBox fx:id="billeteraCheck" onAction="#toggleMixedPaymentOption" text="Billetera"/>
+                        </HBox>
+                        <GridPane fx:id="pagoMixtoGrid" hgap="10.0" vgap="10.0">
+                            <columnConstraints>
+                                <ColumnConstraints halignment="RIGHT" hgrow="SOMETIMES" minWidth="10.0"/>
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0"/>
+                            </columnConstraints>
+                            <rowConstraints>
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES"/>
+                            </rowConstraints>
+                            <Label text="Efectivo:" GridPane.rowIndex="0"/>
+                            <TextField fx:id="efectivoMixtoField" disable="true" promptText="0.00" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                            <Label text="Tarjeta:" GridPane.rowIndex="1"/>
+                            <TextField fx:id="tarjetaMixtoField" disable="true" promptText="0.00" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                            <Label text="Transferencia:" GridPane.rowIndex="2"/>
+                            <TextField fx:id="transferenciaMixtoField" disable="true" promptText="0.00" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                            <Label text="Billetera:" GridPane.rowIndex="3"/>
+                            <TextField fx:id="billeteraMixtoField" disable="true" promptText="0.00" GridPane.columnIndex="1" GridPane.rowIndex="3"/>
+                            <Label text="Restante:" GridPane.rowIndex="4"/>
+                            <TextField fx:id="restanteMixtoField" editable="false" text="0.00" GridPane.columnIndex="1" GridPane.rowIndex="4"/>
+                        </GridPane>
+                    </VBox>
+                </Tab>
+            </TabPane>
+            <Separator/>
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
+                <Label text="Tipo de impresión:"/>
+                <RadioButton fx:id="facturaFisicaRadio" selected="true" text="Física">
+                    <toggleGroup>
+                        <ToggleGroup fx:id="impresionGroup"/>
+                    </toggleGroup>
+                </RadioButton>
+                <RadioButton fx:id="facturaElectronicaRadio" text="Electrónica" toggleGroup="$impresionGroup"/>
+                <RadioButton fx:id="ambosRadio" text="Ambos" toggleGroup="$impresionGroup"/>
+            </HBox>
+            <Separator/>
+            <HBox alignment="CENTER" spacing="10.0">
+                <Button fx:id="procesarVentaButton" onAction="#handleProcesarVenta" prefHeight="40.0" prefWidth="150.0" style="-fx-background-color: #28a745;" text="Procesar Venta" textFill="WHITE">
+                    <font>
+                        <Font size="14.0"/>
+                    </font>
+                </Button>
+                <Button fx:id="cancelarVentaButton" onAction="#handleCancelarVenta" prefHeight="40.0" prefWidth="100.0" style="-fx-background-color: #dc3545;" text="Cancelar" textFill="WHITE"/>
+            </HBox>
+            <Separator/>
+            <HBox alignment="CENTER" spacing="10.0">
+                <Button fx:id="gestionarDevolucionButton" onAction="#handleGestionarDevolucion" text="Gestionar Devolución"/>
+                <Button fx:id="historialVentasButton" onAction="#handleHistorialVentas" text="Historial de Ventas"/>
+            </HBox>
+            <Label fx:id="statusLabel" style="-fx-font-style: italic;" text="Listo para iniciar venta"/>
+        </VBox>
+    </right>
+</BorderPane>
