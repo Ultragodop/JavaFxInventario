@@ -3,6 +3,8 @@
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 <?import javafx.geometry.Insets?>
+<?import javafx.collections.*?>
+<?import java.lang.*?>
 
 <BorderPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
@@ -18,12 +20,19 @@
                     <TextField fx:id="searchField" promptText="Buscar producto..." prefWidth="250" 
                                styleClass="search-box" onKeyReleased="#handleSearchProduct"/>
                     <Button text="Buscar" onAction="#handleSearchProduct" styleClass="button-primary"/>
+                    <Button text="Escanear" onAction="#handleScanBarcode" styleClass="button-secondary"/>
                 </HBox>
             </HBox>
             
             <TabPane tabClosingPolicy="UNAVAILABLE">
                 <Tab text="Productos">
                     <VBox spacing="10">
+                        <HBox spacing="10" alignment="CENTER_RIGHT">
+                            <Button text="Importar" onAction="#handleImportProducts" styleClass="button-secondary"/>
+                            <Button text="Exportar" onAction="#handleExportProducts" styleClass="button-secondary"/>
+                            <ComboBox fx:id="filterCategoryCombo" promptText="Filtrar por categoría" prefWidth="180"/>
+                            <Button text="Filtrar" onAction="#handleFilterByCategory" styleClass="button-primary"/>
+                        </HBox>
                         <TableView fx:id="productsTable" VBox.vgrow="ALWAYS">
                             <columns>
                                 <TableColumn fx:id="idColumn" text="Código" prefWidth="100"/>
@@ -224,6 +233,105 @@
                         </HBox>
                     </VBox>
                 </Tab>
+                <Tab text="Operaciones Masivas">
+                    <VBox spacing="10">
+                        <Label text="Actualización Masiva de Precios" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                        
+                        <GridPane hgap="10" vgap="10">
+                            <columnConstraints>
+                                <ColumnConstraints hgrow="NEVER" minWidth="80"/>
+                                <ColumnConstraints hgrow="ALWAYS" minWidth="150"/>
+                                <ColumnConstraints hgrow="NEVER" minWidth="100"/>
+                                <ColumnConstraints hgrow="ALWAYS" minWidth="150"/>
+                            </columnConstraints>
+                            
+                            <Label text="Categoría:" GridPane.rowIndex="0" GridPane.columnIndex="0"/>
+                            <ComboBox fx:id="bulkCategoryCombo" prefWidth="180" GridPane.rowIndex="0" GridPane.columnIndex="1"/>
+                            
+                            <Label text="Tipo de Ajuste:" GridPane.rowIndex="0" GridPane.columnIndex="2"/>
+                            <ComboBox fx:id="adjustmentTypeCombo" prefWidth="150" GridPane.rowIndex="0" GridPane.columnIndex="3"/>
+                            
+                            <Label text="Valor:" GridPane.rowIndex="1" GridPane.columnIndex="0"/>
+                            <TextField fx:id="adjustmentValueField" prefWidth="100" GridPane.rowIndex="1" GridPane.columnIndex="1"/>
+                        </GridPane>
+                        
+                        <Button text="Previsualizar Cambios" onAction="#handlePreviewBulkUpdate" styleClass="button-primary"/>
+                        
+                        <TableView fx:id="bulkUpdatePreviewTable" prefHeight="200">
+                            <placeholder><Label text="No hay datos para mostrar"/></placeholder>
+                        </TableView>
+                        
+                        <HBox alignment="CENTER_RIGHT" spacing="10">
+                            <Button text="Aplicar Cambios" onAction="#handleApplyBulkUpdate" styleClass="button-success"/>
+                            <Button text="Cancelar" onAction="#handleCancelBulkUpdate" styleClass="button-danger"/>
+                        </HBox>
+                        
+                        <Separator/>
+                        
+                        <Label text="Importar/Exportar Inventario" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+                        
+                        <HBox spacing="10" alignment="CENTER_LEFT">
+                            <Button text="Descargar Plantilla Excel" onAction="#handleDownloadTemplate" styleClass="button-secondary"/>
+                            <Button text="Importar desde Excel" onAction="#handleImportFromExcel" styleClass="button-primary"/>
+                            <Button text="Exportar Inventario Completo" onAction="#handleExportFullInventory" styleClass="button-success"/>
+                        </HBox>
+                        <Label fx:id="importStatusLabel" styleClass="status-label"/>
+                    </VBox>
+                </Tab>
+                <Tab text="Reportes">
+                    <VBox spacing="10">
+                        <GridPane hgap="20" vgap="15">
+                            <columnConstraints>
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0"/>
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0"/>
+                                <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0"/>
+                            </columnConstraints>
+                            <rowConstraints>
+                                <RowConstraints vgrow="SOMETIMES" minHeight="10.0" prefHeight="100.0"/>
+                                <RowConstraints vgrow="SOMETIMES" minHeight="10.0" prefHeight="100.0"/>
+                            </rowConstraints>
+                            
+                            <VBox spacing="10" alignment="CENTER" style="-fx-border-color: #cccccc; -fx-padding: 15;" 
+                                  GridPane.rowIndex="0" GridPane.columnIndex="0">
+                                <Label text="Valor del Inventario" styleClass="report-header"/>
+                                <Label fx:id="inventoryValueLabel" text="" styleClass="report-value"/>
+                                <Button text="Ver Detalles" onAction="#handleViewInventoryValueDetails" styleClass="button-secondary"/>
+                            </VBox>
+                            
+                            <VBox spacing="10" alignment="CENTER" style="-fx-border-color: #cccccc; -fx-padding: 15;" 
+                                  GridPane.rowIndex="0" GridPane.columnIndex="1">
+                                <Label text="Productos en Stock Crítico" styleClass="report-header"/>
+                                <Label fx:id="criticalStockCountLabel" text="0" styleClass="report-value-warning"/>
+                                <Button text="Ver Detalles" onAction="#handleViewCriticalStockDetails" styleClass="button-warning"/>
+                            </VBox>
+                            
+                            <VBox spacing="10" alignment="CENTER" style="-fx-border-color: #cccccc; -fx-padding: 15;" 
+                                  GridPane.rowIndex="0" GridPane.columnIndex="2">
+                                <Label text="Productos Sin Movimiento" styleClass="report-header"/>
+                                <Label fx:id="noMovementCountLabel" text="0" styleClass="report-value"/>
+                                <Button text="Ver Detalles" onAction="#handleViewNoMovementDetails" styleClass="button-secondary"/>
+                            </VBox>
+                            
+                            <VBox spacing="10" alignment="CENTER" style="-fx-border-color: #cccccc; -fx-padding: 15;" 
+                                  GridPane.rowIndex="1" GridPane.columnIndex="0">
+                                <Label text="Rendimiento por Categoría" styleClass="report-header"/>
+                                <Button text="Generar Reporte" onAction="#handleGenerateCategoryReport" styleClass="button-primary"/>
+                            </VBox>
+                            
+                            <VBox spacing="10" alignment="CENTER" style="-fx-border-color: #cccccc; -fx-padding: 15;" 
+                                  GridPane.rowIndex="1" GridPane.columnIndex="1">
+                                <Label text="Historial de Precios" styleClass="report-header"/>
+                                <Button text="Generar Reporte" onAction="#handleGeneratePriceHistoryReport" styleClass="button-primary"/>
+                            </VBox>
+                            
+                            <VBox spacing="10" alignment="CENTER" style="-fx-border-color: #cccccc; -fx-padding: 15;" 
+                                  GridPane.rowIndex="1" GridPane.columnIndex="2">
+                                <Label text="Informe de Expiración" styleClass="report-header"/>
+                                <Button text="Generar Reporte" onAction="#handleGenerateExpirationReport" styleClass="button-primary"/>
+                            </VBox>
+                        </GridPane>
+                    </VBox>
+                </Tab>
             </TabPane>
         </VBox>
     </top>
@@ -233,10 +341,20 @@
             <padding>
                 <Insets top="5" right="10" bottom="5" left="10"/>
             </padding>
-            
             <Label fx:id="statusLabel" text="Listo" styleClass="status-label"/>
             <Region HBox.hgrow="ALWAYS"/>
             <Label fx:id="totalProductsLabel" text="Total de productos: 0"/>
+            <Separator orientation="VERTICAL" prefHeight="20">
+                <HBox.margin>
+                    <Insets left="10" right="10"/>
+                </HBox.margin>
+            </Separator>
+            <Label fx:id="inventorySummaryLabel" text="Valor total: $0.00"/>
+            <Label fx:id="lastUpdatedLabel" text="Última actualización: -">
+                <HBox.margin>
+                    <Insets left="20"/>
+                </HBox.margin>
+            </Label>
         </HBox>
     </bottom>
 </BorderPane>

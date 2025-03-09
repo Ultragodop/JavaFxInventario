@@ -38,7 +38,7 @@
                     <Button fx:id="agregarProductoButton" onAction="#handleAgregarProducto" text="Agregar"/>
                     <Button onAction="#handleBuscarProductoManual" text="Buscar Producto (F2)"/>
                 </HBox>
-                <TableView fx:id="saleItemsTable" VBox.vgrow="ALWAYS">
+                <TableView fx:id="saleItemsTable" VBox.vgrow="ALWAYS" editable="true">
                     <columns>
                         <TableColumn fx:id="codigoColumn" prefWidth="100.0" text="Código"/>
                         <TableColumn fx:id="nombreColumn" prefWidth="200.0" text="Producto"/>
@@ -48,6 +48,9 @@
                         <TableColumn fx:id="totalColumn" prefWidth="100.0" text="Total"/>
                         <TableColumn fx:id="accionesColumn" prefWidth="120.0" text="Acciones"/>
                     </columns>
+                    <tooltip>
+                        <Tooltip text="Haga doble clic en el precio unitario para modificarlo (solo para esta venta)"/>
+                    </tooltip>
                 </TableView>
             </VBox>
             <VBox spacing="10.0">

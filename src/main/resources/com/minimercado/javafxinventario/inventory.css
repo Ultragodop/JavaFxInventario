@@ -7,6 +7,47 @@
     -fx-border-color: #bdc3c7;
     -fx-border-width: 1;
 }
+
+/* New styles for report tab */
+.report-header {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #34495e;
+    -fx-padding: 5px;
+}
+.report-value {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #27ae60;
+}
+.report-value-warning {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #e67e22;
+}
+
+/* New button styles */
+.button-primary {
+    -fx-background-color: #2980b9;
+    -fx-text-fill: white;
+}
+.button-primary:hover {
+    -fx-background-color: #1c5980;
+}
+.button-secondary {
+    -fx-background-color: #95a5a6;
+    -fx-text-fill: white;
+}
+.button-success {
+    -fx-background-color: #27ae60;
+    -fx-text-fill: white;
+}
+.button-danger {
+    -fx-background-color: #e74c3c;
+    -fx-text-fill: white;
+}
+
+/* Additional styles */
 .button {
     -fx-background-color: #3498db;
     -fx-text-fill: white;
@@ -15,6 +56,16 @@
     -fx-background-color: #2980b9;
 }
 .text-field {
+    -fx-border-color: #bdc3c7;
+    -fx-border-width: 1;
+    -fx-padding: 5px;
+}
+.grid-pane {
+    -fx-padding: 10;
+    -fx-hgap: 10;
+    -fx-vgap: 10;
+}
+.search-box {
     -fx-border-color: #bdc3c7;
     -fx-border-width: 1;
     -fx-padding: 5px;
