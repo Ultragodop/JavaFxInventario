@@ -2,13 +2,26 @@ package com.minimercado.javafxinventario.controllers;
 
 import com.minimercado.javafxinventario.DAO.InventoryDAO;
 import com.minimercado.javafxinventario.modules.Product;
+import com.minimercado.javafxinventario.modules.InventoryMovement;
+import com.minimercado.javafxinventario.modules.InventoryModule;
+import com.minimercado.javafxinventario.modules.Supplier;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.control.Pagination;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Date;
+import java.util.List;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.DatePicker;
+import javafx.scene.control.CheckBox;
 
 public class InventoryViewController {
     @FXML private HBox searchBox;
@@ -20,10 +33,19 @@ public class InventoryViewController {
     @FXML private TableColumn<Product, Double> priceColumn;
     
     @FXML private TextField idField;
+    @FXML private TextField skuField; // Added
     @FXML private TextField nameField;
+    @FXML private ComboBox<String> categoryCombo; // Added
+    @FXML private TextArea descriptionArea; // Added
+    @FXML private ComboBox<String> supplierCombo; // Added
+    @FXML private TextField purchasePriceField; // Added
+    @FXML private TextField sellingPriceField; // Added (replaces priceField)
     @FXML private TextField stockField;
-    @FXML private TextField thresholdField;
-    @FXML private TextField priceField;
+    @FXML private TextField reorderLevelField; // Added (replaces thresholdField)
+    @FXML private TextField discountField; // Added
+    @FXML private TextField locationField; // Added
+    @FXML private DatePicker expirationDatePicker; // Added
+    @FXML private CheckBox activeCheckbox; // Added
     @FXML private TextField searchField;
     @FXML private Label statusLabel;
     
@@ -55,49 +77,150 @@ public class InventoryViewController {
     @FXML private TextField searchFieldDelete;
     @FXML private TableView<Product> deleteResultsTable;
     @FXML private TableColumn<Product, String> deleteIdColumn;
-    @FXML private TableColumn<Product, String> deleteNameColumn;
+    
     @FXML private Label statusLabelDelete;
     
     @FXML private StackPane optionsStack;
+    @FXML private Pagination pagination;
     
     private InventoryDAO inventoryDAO = new InventoryDAO();
     private ObservableList<Product> productList = FXCollections.observableArrayList();
+    private InventoryModule inventoryModule = InventoryModule.getInstance();
     
+    // Nuevos campos para "Editar Producto"
+    @FXML private TextField searchEditField;
+    @FXML private TableView<Product> editProductsTable;
+    @FXML private TableColumn<Product, String> editBarcodeColumn;
+    @FXML private TableColumn<Product, String> editNameColumn;
+    @FXML private TextField editNameField;
+    @FXML private TextField editPurchasePriceField;
+    @FXML private TextField editSellingPriceField;
+    @FXML private TextField editStockField;
+    @FXML private TextField editReorderLevelField;
+
+    // Nuevos campos para "Eliminar Producto"
+    @FXML private TextField searchDeleteField;
+    @FXML private TableView<Product> deleteProductsTable;
+    @FXML private TableColumn<Product, String> deleteBarcodeColumn;
+    @FXML private TableColumn<Product, String> deleteNameColumn;
+    @FXML private TableColumn<Product, Integer> deleteStockColumn;
+    @FXML private TableColumn<Product, Double> deletePriceColumn;
+    @FXML private TableColumn<Product, String> deleteSupplierColumn;
+
+    // Nuevos campos para "Stock Bajo"
+    @FXML private TableView<Product> lowStockTable;
+    @FXML private TableColumn<Product, String> lowStockBarcodeColumn;
+    @FXML private TableColumn<Product, String> lowStockNameColumn;
+    @FXML private TableColumn<Product, Integer> lowStockQuantityColumn;
+    @FXML private TableColumn<Product, Integer> lowStockReorderColumn;
+    @FXML private TableColumn<Product, String> lowStockSupplierColumn;
+
+    // Nuevos campos para "Movimientos"
+    @FXML private TextField searchMovementsField;
+    @FXML private TableView<InventoryMovement> movementsTable;
+    @FXML private TableColumn<InventoryMovement, String> movementDateColumn;
+    @FXML private TableColumn<InventoryMovement, String> movementTypeColumn;
+    @FXML private TableColumn<InventoryMovement, Integer> movementQuantityColumn;
+    @FXML private TableColumn<InventoryMovement, String> movementReferenceColumn;
+
     @FXML
     public void initialize() {
         // Inicialización de la tabla principal
-        idColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getId()));
+        idColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(String.valueOf(cellData.getValue().getId())));
         nameColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getName()));
-        stockColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleIntegerProperty(cellData.getValue().getStock()).asObject());
-        thresholdColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleIntegerProperty(cellData.getValue().getThreshold()).asObject());
-        priceColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleDoubleProperty(cellData.getValue().getPrice()).asObject());
+        stockColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleIntegerProperty(cellData.getValue().getStockQuantity()).asObject());
+        thresholdColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleIntegerProperty(cellData.getValue().getReorderLevel()).asObject());
+        priceColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleDoubleProperty(cellData.getValue().getSellingPrice()).asObject());
         productsTable.setItems(productList);
         loadProducts();
         
-        // Inicialización de columnas para actualización
-        updateIdColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getId()));
-        updateNameColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getName()));
+        // Inicialización de columnas para actualización (only if injected)
+        if(updateIdColumn != null) {
+            updateIdColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(String.valueOf(cellData.getValue().getId())));
+        }
+        if(updateNameColumn != null) {
+            updateNameColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getName()));
+        }
         
         // Inicialización de columnas para eliminación, validando inyección desde el FXML
         if(deleteIdColumn == null || deleteNameColumn == null) {
             System.err.println("Verificar fx:id de las columnas de eliminación.");
         } else {
-            deleteIdColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getId()));
+            deleteIdColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(String.valueOf(cellData.getValue().getId())));
             deleteNameColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getName()));
         }
         
         // Inicialización de columnas para el panel de búsqueda
         if(searchPane != null) {
-            searchIdColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getId()));
+            searchIdColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(String.valueOf(cellData.getValue().getId())));
             searchNameColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getName()));
-            searchStockColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleIntegerProperty(cellData.getValue().getStock()).asString());
-            searchThresholdColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleIntegerProperty(cellData.getValue().getThreshold()).asString());
-            searchPriceColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleDoubleProperty(cellData.getValue().getPrice()).asString());
+            searchStockColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleIntegerProperty(cellData.getValue().getStockQuantity()).asString());
+            searchThresholdColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleIntegerProperty(cellData.getValue().getReorderLevel()).asString());
+            searchPriceColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleDoubleProperty(cellData.getValue().getSellingPrice()).asString());
+        }
+        setupPagination();
+        // Inicializar columnas y tablas de nuevos paneles
+        if(editProductsTable != null) {
+            editBarcodeColumn.setCellValueFactory(new PropertyValueFactory<>("barcode"));
+            editNameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
+        }
+        if(deleteProductsTable != null) {
+            deleteBarcodeColumn.setCellValueFactory(new PropertyValueFactory<>("barcode"));
+            deleteNameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
+            deleteStockColumn.setCellValueFactory(new PropertyValueFactory<>("stockQuantity"));
+            deletePriceColumn.setCellValueFactory(new PropertyValueFactory<>("sellingPrice"));
+            deleteSupplierColumn.setCellValueFactory(new PropertyValueFactory<>("supplier"));
+        }
+        if(lowStockTable != null) {
+            lowStockBarcodeColumn.setCellValueFactory(new PropertyValueFactory<>("barcode"));
+            lowStockNameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
+            lowStockQuantityColumn.setCellValueFactory(new PropertyValueFactory<>("stockQuantity"));
+            lowStockReorderColumn.setCellValueFactory(new PropertyValueFactory<>("reorderLevel"));
+            lowStockSupplierColumn.setCellValueFactory(new PropertyValueFactory<>("supplier"));
+            
+            // Load low stock products on initialization
+            handleRefreshLowStock();
+        }
+        if(movementsTable != null) {
+            movementDateColumn.setCellValueFactory(new PropertyValueFactory<>("date"));
+            movementTypeColumn.setCellValueFactory(new PropertyValueFactory<>("movementType"));
+            movementQuantityColumn.setCellValueFactory(new PropertyValueFactory<>("quantity"));
+            movementReferenceColumn.setCellValueFactory(new PropertyValueFactory<>("reference"));
+        }
+
+        // Initialize supplier and category combos
+        if(supplierCombo != null) {
+            // Populate with suppliers from database
+            List<Supplier> suppliers = inventoryDAO.getAllSuppliers();
+            ObservableList<String> supplierNames = FXCollections.observableArrayList();
+            for(Supplier supplier : suppliers) {
+                supplierNames.add(supplier.getName());
+            }
+            supplierCombo.setItems(supplierNames);
+        }
+        
+        if(categoryCombo != null) {
+            // Populate with distinct categories from database
+            List<String> categories = inventoryDAO.getDistinctCategories();
+            categoryCombo.setItems(FXCollections.observableArrayList(categories));
         }
     }
     
     private void loadProducts() {
         productList.setAll(inventoryDAO.getAllProducts());
+    }
+    
+    private void setupPagination() {
+        if(pagination != null) {
+            pagination.setPageFactory(pageIndex -> {
+                loadPage(pageIndex);
+                return productsTable; 
+            });
+        }
+    }
+
+    private void loadPage(int pageIndex) {
+        // ...implementación simple de paginación...
     }
     
     // Método genérico para actualizar resultados de búsqueda en un TableView según un TextField
@@ -116,40 +239,79 @@ public class InventoryViewController {
     // Métodos de manejo de productos
     @FXML
     protected void handleAddProduct() {
+        if(idField == null) { // added null check
+            mostrarError("Campo ID no inyectado. Verifique el fx:id en FXML.");
+            return;
+        }
         try {
-            Product p = new Product(
-                idField.getText(),
-                nameField.getText(),
-                Integer.parseInt(stockField.getText()),
-                Integer.parseInt(thresholdField.getText()),
-                Double.parseDouble(priceField.getText())
-            );
-            try {
-                inventoryDAO.addProduct(p);
-                loadProducts();
-            } catch (Exception e) {
-                statusLabel.setText("Error: " + e.getMessage());
+            // Validate required fields
+            if(idField.getText().trim().isEmpty() || 
+               nameField.getText().trim().isEmpty() ||
+               stockField.getText().trim().isEmpty() ||
+               reorderLevelField.getText().trim().isEmpty() ||
+               sellingPriceField.getText().trim().isEmpty()) {
+                mostrarError("Los campos con * son obligatorios");
                 return;
             }
-
-            statusLabel.setText("Producto agregado exitosamente.");
+            
+            // Create product object with all form fields
+            Product p = new Product();
+            p.setBarcode(idField.getText().trim());
+            p.setSku(skuField.getText().trim());
+            p.setName(nameField.getText().trim());
+            p.setCategory(categoryCombo.getValue() != null ? categoryCombo.getValue() : "");
+            p.setDescription(descriptionArea.getText().trim());
+            p.setSupplier(supplierCombo.getValue() != null ? supplierCombo.getValue() : "");
+            
+            // Parse numeric fields
+            try {
+                p.setPurchasePrice(purchasePriceField.getText().trim().isEmpty() ? 
+                    0.0 : Double.parseDouble(purchasePriceField.getText().trim()));
+                p.setSellingPrice(Double.parseDouble(sellingPriceField.getText().trim()));
+                p.setStockQuantity(Integer.parseInt(stockField.getText().trim()));
+                p.setReorderLevel(Integer.parseInt(reorderLevelField.getText().trim()));
+                p.setDiscount(discountField.getText().trim().isEmpty() ? 
+                    0.0 : Double.parseDouble(discountField.getText().trim()));
+            } catch(NumberFormatException e) {
+                mostrarError("Formato inválido en campos numéricos: " + e.getMessage());
+                return;
+            }
+            
+            // Set other fields
+            p.setActive(activeCheckbox.isSelected());
+            
+            // Convert LocalDate to Date if expiration date is selected
+            if(expirationDatePicker.getValue() != null) {
+                LocalDate localDate = expirationDatePicker.getValue();
+                Date expirationDate = Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+                p.setExpirationDate(expirationDate);
+            }
+            
+            // Add product to database
+            if(inventoryDAO.addProduct(p)) {
+                mostrarMensaje("Producto agregado exitosamente");
+                loadProducts();
+                handleClearForm(); // Clear the form after successful add
+            } else {
+                mostrarError("No se pudo agregar el producto");
+            }
         } catch(Exception e) {
-            statusLabel.setText("Error: " + e.getMessage());
+            mostrarError("Error al agregar producto: " + e.getMessage());
         }
     }
     
     @FXML
     protected void handleUpdateProduct() {
         try {
-            Product selected = productList.stream().filter(p -> p.getId().equals(idField.getText())).findFirst().orElse(null);
+            Product selected = productList.stream().filter(p -> p.getBarcode().equals(idField.getText())).findFirst().orElse(null);
             if (selected == null) {
                 statusLabel.setText("Seleccione un producto para actualizar.");
                 return;
             }
             selected.setName(nameField.getText());
-            selected.setStock(Integer.parseInt(stockField.getText()));
-            selected.setThreshold(Integer.parseInt(thresholdField.getText()));
-            selected.setPrice(Double.parseDouble(priceField.getText()));
+            selected.setStockQuantity(Integer.parseInt(stockField.getText()));
+            selected.setReorderLevel(Integer.parseInt(reorderLevelField.getText()));
+            selected.setSellingPrice(Double.parseDouble(sellingPriceField.getText()));
             inventoryDAO.updateProduct(selected);
             loadProducts();
             statusLabel.setText("Producto actualizado exitosamente.");
@@ -160,12 +322,16 @@ public class InventoryViewController {
     
     @FXML
     protected void handleRemoveProduct() {
-        Product selected = productList.stream().filter(p -> p.getId().equals(idField.getText())).findFirst().orElse(null);
+        if(idField == null) { // added null check
+            mostrarError("Campo ID no inyectado. Verifique el fx:id en FXML.");
+            return;
+        }
+        Product selected = productList.stream().filter(p -> p.getBarcode().equals(idField.getText())).findFirst().orElse(null);
         if (selected == null) {
             statusLabel.setText("Seleccione un producto para eliminar.");
             return;
         }
-        inventoryDAO.removeProduct(selected.getId());
+        inventoryDAO.deleteProduct(selected.getBarcode());
         loadProducts();
         statusLabel.setText("Producto eliminado exitosamente.");
     }
@@ -225,7 +391,7 @@ public class InventoryViewController {
         }
         try {
             double newPrice = Double.parseDouble(newPriceField.getText().trim());
-            selected.setPrice(newPrice);
+            selected.setSellingPrice(newPrice);
             inventoryDAO.updateProduct(selected);
             loadProducts();
             updateResultsTable.refresh();
@@ -236,27 +402,6 @@ public class InventoryViewController {
     }
     
     // Manejo de búsqueda en el panel de eliminación
- 
-    
-    // Método para eliminar producto a partir de la búsqueda
-    @FXML
-    protected void handleRemoveProductBySearch() {
-        String query = searchFieldDelete.getText().trim();
-        if(query.isEmpty()){
-            statusLabelDelete.setText("Ingrese un criterio de búsqueda.");
-            return;
-        }
-        Product p = inventoryDAO.searchProducts(query).stream().findFirst().orElse(null);
-        if(p == null){
-            statusLabelDelete.setText("Producto no encontrado.");
-            return;
-        }
-        inventoryDAO.removeProduct(p.getId());
-        loadProducts(); // Se recarga la lista de productos actualizando el panel de agregar
-        statusLabelDelete.setText("Producto eliminado exitosamente.");
-    }
-    
-    // Nuevo método para buscar productos a eliminar
     @FXML
     private void handleSearchDeleteProducts() {
         String query = searchFieldDelete.getText().trim();
@@ -283,7 +428,7 @@ public class InventoryViewController {
             return;
         }
         try {
-            inventoryDAO.removeProduct(selected.getId());
+            inventoryDAO.deleteProduct(selected.getBarcode());
             loadProducts(); // Se recarga la lista de productos actualizando el panel de agregar
             deleteResultsTable.getItems().remove(selected);
             statusLabelDelete.setText("Producto eliminado exitosamente.");
@@ -308,5 +453,179 @@ public class InventoryViewController {
             statusLabelBuscar.setText("");
         }
         searchResultsTable.setItems(results);
+    }
+
+    // Métodos para "Editar Producto"
+    @FXML
+    private void handleSearchEditProduct() {
+        String query = searchEditField.getText().trim();
+        if(query.isEmpty()){
+            editProductsTable.getItems().clear();
+            return;
+        }
+        ObservableList<Product> results = FXCollections.observableArrayList(inventoryDAO.searchProducts(query));
+        editProductsTable.setItems(results);
+    }
+    @FXML
+    private void handleUpdateSelectedProduct() {
+        Product selected = editProductsTable.getSelectionModel().getSelectedItem();
+        if(selected == null) {
+            mostrarError("Seleccione un producto para editar");
+            return;
+        }
+        try {
+            selected.setName(editNameField.getText());
+            selected.setPurchasePrice(Double.parseDouble(editPurchasePriceField.getText()));
+            selected.setSellingPrice(Double.parseDouble(editSellingPriceField.getText()));
+            selected.setStockQuantity(Integer.parseInt(editStockField.getText()));
+            selected.setReorderLevel(Integer.parseInt(editReorderLevelField.getText()));
+            if(inventoryDAO.updateProduct(selected)) {
+                mostrarMensaje("Producto actualizado exitosamente");
+                loadProducts();
+            } else {
+                mostrarError("No se pudo actualizar el producto");
+            }
+        } catch(Exception e) {
+            mostrarError("Error al actualizar: " + e.getMessage());
+        }
+    }
+    @FXML
+    private void handleCancelEdit() {
+        // Limpia campos del panel de edición
+        searchEditField.clear();
+        editProductsTable.getItems().clear();
+        // ...existing code para limpiar formulario de edición...
+    }
+
+    // Métodos para "Eliminar Producto"
+    @FXML
+    private void handleSearchDeleteProduct() {
+        String query = searchDeleteField.getText().trim();
+        if(query.isEmpty()){
+            deleteProductsTable.getItems().clear();
+            return;
+        }
+        ObservableList<Product> results = FXCollections.observableArrayList(inventoryDAO.searchProducts(query));
+        deleteProductsTable.setItems(results);
+    }
+    @FXML
+    private void handleDeleteProduct() {
+        Product selected = deleteProductsTable.getSelectionModel().getSelectedItem();
+        if(selected == null) {
+            mostrarError("Seleccione un producto para eliminar");
+            return;
+        }
+        if(inventoryDAO.deleteProduct(selected.getBarcode())) {
+            mostrarMensaje("Producto eliminado exitosamente");
+            loadProducts();
+            deleteProductsTable.getItems().remove(selected);
+        } else {
+            mostrarError("No se pudo eliminar el producto");
+        }
+    }
+
+    // Método para "Stock Bajo"
+    @FXML
+    private void handleRefreshLowStock() {
+        try {
+            // Use the DAO to get low stock products directly from the database
+            List<Product> lowStockProducts = inventoryDAO.getLowStockProducts();
+            
+            // Convert to ObservableList and set to table
+            ObservableList<Product> lowStock = FXCollections.observableArrayList(lowStockProducts);
+            lowStockTable.setItems(lowStock);
+            
+            // Update status
+            if (lowStock.isEmpty()) {
+                statusLabel.setText("No hay productos con stock bajo");
+            } else {
+                statusLabel.setText("Se encontraron " + lowStock.size() + " productos con stock bajo");
+            }
+            
+            // Debug output
+            System.out.println("Cargados " + lowStock.size() + " productos con stock bajo");
+            for (Product p : lowStock) {
+                System.out.println("Producto bajo stock: " + p.getName() + ", Stock: " + p.getStockQuantity() + 
+                                  ", Nivel reorden: " + p.getReorderLevel());
+            }
+        } catch (Exception e) {
+            statusLabel.setText("Error al cargar productos con stock bajo: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    // Métodos para "Movimientos"
+    @FXML
+    private void handleViewMovements() {
+        try {
+            // Modificado para usar un método que debe existir en InventoryDAO o crear stub
+            ObservableList<InventoryMovement> movimientos = FXCollections.observableArrayList(
+                inventoryDAO.getMovementsByProduct(searchMovementsField.getText().trim()));
+            movementsTable.setItems(movimientos);
+            if(movimientos.isEmpty()){
+                mostrarMensaje("No se encontraron movimientos");
+            }
+        } catch (Exception e) {
+            mostrarError("Error al buscar movimientos: " + e.getMessage());
+        }
+    }
+    @FXML
+    private void handleRegisterAdjustment() {
+        // Mostrar diálogo para registrar ajuste (stub)
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Registrar Ajuste");
+        alert.setHeaderText(null);
+        alert.setContentText("Funcionalidad para registrar ajuste no implementada.");
+        alert.showAndWait();
+    }
+    @FXML
+    private void handleExportMovements() {
+        // Exportar movimientos a Excel (stub)
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Exportar Movimientos");
+        alert.setHeaderText(null);
+        alert.setContentText("Funcionalidad para exportar movimientos no implementada.");
+        alert.showAndWait();
+    }
+
+    @FXML
+    private void handleCreatePurchaseOrder() {
+        // Implementación de la funcionalidad de crear orden de compra
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Crear Orden de Compra");
+        alert.setHeaderText(null);
+        alert.setContentText("Funcionalidad para crear orden de compra no implementada.");
+        alert.showAndWait();
+    }
+    
+    @FXML
+    private void handleClearForm() {
+        // Limpia los campos del formulario de agregar producto usando los campos definidos
+        if(idField != null) idField.clear();
+        if(skuField != null) skuField.clear();
+        if(nameField != null) nameField.clear();
+        if(categoryCombo != null) categoryCombo.setValue(null);
+        if(descriptionArea != null) descriptionArea.clear();
+        if(supplierCombo != null) supplierCombo.setValue(null);
+        if(purchasePriceField != null) purchasePriceField.clear();
+        if(sellingPriceField != null) sellingPriceField.clear();
+        if(stockField != null) stockField.clear();
+        if(reorderLevelField != null) reorderLevelField.clear();
+        if(discountField != null) discountField.clear();
+        if(locationField != null) locationField.clear();
+        if(expirationDatePicker != null) expirationDatePicker.setValue(null);
+        if(activeCheckbox != null) activeCheckbox.setSelected(true);
+    }
+
+    // Métodos de utilería para mensajes
+    private void mostrarError(String mensaje) {
+        statusLabel.setText("Error: " + mensaje);
+        Alert alert = new Alert(Alert.AlertType.ERROR, mensaje, ButtonType.OK);
+        alert.showAndWait();
+    }
+    private void mostrarMensaje(String mensaje) {
+        statusLabel.setText(mensaje);
+        Alert alert = new Alert(Alert.AlertType.INFORMATION, mensaje, ButtonType.OK);
+        alert.showAndWait();
     }
 }

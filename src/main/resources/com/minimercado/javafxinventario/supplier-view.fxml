@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox spacing="10" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.minimercado.javafxinventario.controllers.SupplierController">
+    <!-- Formulario de Proveedores -->
+    <HBox spacing="10">
+        <VBox spacing="5">
+            <Label text="Nombre:"/>
+            <TextField fx:id="nameField"/>
+            <Label text="Contacto:"/>
+            <TextField fx:id="contactField"/>
+        </VBox>
+        <VBox spacing="5">
+            <Label text="Teléfono:"/>
+            <TextField fx:id="phoneField"/>
+            <Label text="Email:"/>
+            <TextField fx:id="emailField"/>
+        </VBox>
+        <VBox spacing="5">
+            <Label text="Dirección:"/>
+            <TextField fx:id="addressField"/>
+            <Label text="Notas:"/>
+            <TextArea fx:id="notesArea" prefRowCount="2"/>
+        </VBox>
+    </HBox>
+    <HBox spacing="10">
+        <Button text="Agregar" onAction="#handleAddSupplier"/>
+        <Button text="Actualizar" onAction="#handleUpdateSupplier"/>
+        <Button text="Eliminar" onAction="#handleDeleteSupplier"/>
+    </HBox>
+    <Label fx:id="statusLabel"/>
+    <!-- Tabla de Proveedores -->
+    <TableView fx:id="supplierTable" prefHeight="200">
+        <columns>
+            <TableColumn fx:id="idColumn" text="ID" prefWidth="50"/>
+            <TableColumn fx:id="nameColumn" text="Nombre" prefWidth="150"/>
+            <TableColumn fx:id="contactColumn" text="Contacto" prefWidth="150"/>
+            <TableColumn fx:id="phoneColumn" text="Teléfono" prefWidth="100"/>
+            <TableColumn fx:id="emailColumn" text="Email" prefWidth="150"/>
+            <TableColumn fx:id="addressColumn" text="Dirección" prefWidth="200"/>
+        </columns>
+    </TableView>
+</VBox>

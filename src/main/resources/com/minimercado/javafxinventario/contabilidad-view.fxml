@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.collections.FXCollections?>
+<VBox spacing="15" alignment="CENTER" xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml" fx:controller="com.minimercado.javafxinventario.controllers.ContabilidadController">
+    <Label text="Modulo Contable" style="-fx-font-size: 18; -fx-font-weight: bold;"/>
+    
+    <!-- TabPane for different accounting features -->
+    <TabPane>
+        <Tab text="Resumen" closable="false">
+            <VBox spacing="15">
+                <!-- Resumen Financiero en Tiempo Real -->
+                <VBox spacing="10">
+                    <Label text="Resumen Financiero en Tiempo Real:"/>
+                    <HBox spacing="10">
+                        <Label text="Total Ventas:"/>
+                        <Label fx:id="lblTotalVentas"/>
+                    </HBox>
+                    <HBox spacing="10">
+                        <Label text="Margen de Ganancia:"/>
+                        <Label fx:id="lblMargenGanancia"/>
+                    </HBox>
+                    <HBox spacing="10">
+                        <Label text="Costos Operativos:"/>
+                        <Label fx:id="lblCostosOperativos"/>
+                    </HBox>
+                </VBox>
+                <!-- Filtros, búsqueda y exportación -->
+                <HBox spacing="10">
+                    <Label text="Filtro:"/>
+                    <ComboBox fx:id="filtroCombo" promptText="Diario, Semanal, Mensual"/>
+                    <TextField fx:id="searchTransField" promptText="Buscar transacción"/>
+                    <Button text="Exportar CSV" onAction="#exportarCSV"/>
+                    <Button text="Exportar PDF" onAction="#exportarPDF"/>
+                    <Button text="Exportar Excel" onAction="#exportarExcel"/>
+                    <!-- Nuevo botón para generar el reporte avanzado -->
+                    <Button text="Reporte Avanzado" onAction="#exportarReporteCompleto"/>
+                </HBox>
+                <!-- Listado y detalle de transacciones -->
+                <TableView fx:id="transaccionesTable" prefWidth="600" prefHeight="200">
+                    <columns>
+                        <TableColumn fx:id="colTipo" text="Tipo"/>
+                        <TableColumn fx:id="colMonto" text="Monto"/>
+                        <TableColumn fx:id="colDescripcion" text="Descripción"/>
+                        <TableColumn fx:id="colFecha" text="Fecha/Hora"/>
+                    </columns>
+                </TableView>
+                <!-- Registro de Auditoría y Conciliación -->
+                <VBox spacing="10">
+                    <Label text="Registro de Auditoría:"/>
+                    <TextArea fx:id="auditArea" prefWidth="600" prefHeight="150" editable="false"/>
+                </VBox>
+            </VBox>
+        </Tab>
+        
+        <!-- New Tab: Libro Mayor (General Ledger) -->
+        <Tab text="Libro Mayor" closable="false">
+            <VBox spacing="10" style="-fx-padding: 10;">
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Cuenta:"/>
+                    <ComboBox fx:id="accountComboBox" prefWidth="200"/>
+                    <Label text="Desde:"/>
+                    <DatePicker fx:id="ledgerStartDatePicker"/>
+                    <Label text="Hasta:"/>
+                    <DatePicker fx:id="ledgerEndDatePicker"/>
+                    <Button text="Buscar" onAction="#handleSearchLedger"/>
+                </HBox>
+                
+                <TableView fx:id="journalEntriesTable" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="entryDateColumn" text="Fecha" prefWidth="100"/>
+                        <TableColumn fx:id="referenceColumn" text="Referencia" prefWidth="100"/>
+                        <TableColumn fx:id="entryDescriptionColumn" text="Descripción" prefWidth="250"/>
+                        <TableColumn fx:id="entryDebitColumn" text="Débito" prefWidth="100"/>
+                        <TableColumn fx:id="entryCreditColumn" text="Crédito" prefWidth="100"/>
+                    </columns>
+                </TableView>
+                
+                <Label fx:id="journalStatusLabel" text=""/>
+            </VBox>
+        </Tab>
+        
+        <!-- New Tab: Asiento Contable (Journal Entry) -->
+        <Tab text="Asiento Contable" closable="false">
+            <VBox spacing="10" style="-fx-padding: 10;">
+                <GridPane hgap="10" vgap="10">
+                    <columnConstraints>
+                        <ColumnConstraints hgrow="NEVER" minWidth="100" prefWidth="150"/>
+                        <ColumnConstraints hgrow="ALWAYS" minWidth="200"/>
+                    </columnConstraints>
+                    
+                    <Label text="Fecha:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                    <DatePicker fx:id="entryDatePicker" GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                    
+                    <Label text="Referencia:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                    <TextField fx:id="referenceField" GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+                    
+                    <Label text="Descripción:" GridPane.columnIndex="0" GridPane.rowIndex="2"/>
+                    <TextField fx:id="descriptionField" GridPane.columnIndex="1" GridPane.rowIndex="2"/>
+                </GridPane>
+                
+                <Label text="Líneas de asiento:"/>
+                <VBox fx:id="lineItemsContainer" spacing="5"/>
+                
+                <HBox spacing="10">
+                    <Button text="Agregar Línea" onAction="#handleAddLineItem"/>
+                    <Button text="Guardar Asiento" onAction="#handleSaveEntry"/>
+                </HBox>
+                
+                <Label fx:id="newEntryStatusLabel" text=""/>
+            </VBox>
+        </Tab>
+    </TabPane>
+    
+    <Button text="Volver al Menú" onAction="#volverMenu"/>
+</VBox>

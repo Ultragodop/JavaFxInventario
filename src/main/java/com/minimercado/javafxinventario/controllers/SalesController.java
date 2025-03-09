@@ -4,6 +4,7 @@ import com.minimercado.javafxinventario.modules.SalesModule;
 import com.minimercado.javafxinventario.modules.POSController;
 import com.minimercado.javafxinventario.modules.AccountingModule;
 import com.minimercado.javafxinventario.modules.InventoryModule;
+import com.minimercado.javafxinventario.enums.PaymentMethod;
 
 public class SalesController {
     private SalesModule salesModule = new SalesModule();

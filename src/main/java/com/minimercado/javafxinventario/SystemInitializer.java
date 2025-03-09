@@ -10,56 +10,63 @@ import com.minimercado.javafxinventario.modules.InventoryModule;
 import com.minimercado.javafxinventario.modules.SalesModule;
 import com.minimercado.javafxinventario.modules.SecurityModule;
 import com.minimercado.javafxinventario.modules.ApiGateway;
+import com.minimercado.javafxinventario.utils.ThemeManager;
 
 public class SystemInitializer extends Application {
-    private AccountingModule accountingModule;
-    private InventoryModule inventoryModule;
-    private SalesModule salesModule;
-    private SecurityModule securityModule;
-    private ApiGateway apiGateway;
 
     @Override
     public void start(Stage stage) throws IOException {
-        // ...inicialización de módulos de negocio...
+        try {
+            FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/main-menu.fxml"));
+            Scene scene = new Scene(fxmlLoader.load());
+            
+            // Apply theme
+            ThemeManager.applyTheme(scene);
+            
+            stage.setTitle("Sistema de Gestión de Inventario");
+            stage.setScene(scene);
+            stage.setMaximized(true);
+            stage.show();
+            
+            // Initialize modules
+            initModules();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("Error starting application: " + e.getMessage());
+        }
+    }
+
+    private void initModules() {
         initAccountingModule();
         initInventoryModule();
         initSalesModule();
         initSecurityModule();
         initApiGateway();
-        FXMLLoader fxmlLoader = new FXMLLoader(SystemInitializer.class.getResource("inventory-view.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 800, 600); // ventana aumentada para mayor escalabilidad
-        stage.setTitle("Sistema Inventario y Contabilidad");
-        stage.setScene(scene);
-        stage.show();
     }
 
     private void initAccountingModule() {
-        accountingModule = new AccountingModule();
-        // Registro de transacciones, generación de balances, integración con impuestos y reportes financieros
+        // Initialize accounting module
+        AccountingModule.getInstance();
     }
 
     private void initInventoryModule() {
-        inventoryModule = new InventoryModule();
-        // Control de stock, alertas de inventario bajo, gestión de proveedores y seguimiento de caducidad
+        // Initialize inventory module
+        InventoryModule.getInstance();
     }
 
     private void initSalesModule() {
-        salesModule = new SalesModule();
-        // Punto de Venta (POS), facturación electrónica y historial de transacciones por cliente
+        // Initialize sales module (handled through dependency injection)
     }
 
     private void initSecurityModule() {
-        securityModule = new SecurityModule();
-        // Autenticación y autorización de usuarios
+        // Initialize security module
     }
 
     private void initApiGateway() {
-        apiGateway = new ApiGateway();
-        // Centralizar peticiones, logs, auditoría y notificaciones (correo, SMS)
+        // Initialize API gateway for external services
     }
 
     public static void main(String[] args) {
-        // ...inicialigh repo clone Ultragodop/JavaFxInventariozación de conexión a BD, pooling, etc...
-        launch();
+        launch(args);
     }
 }
