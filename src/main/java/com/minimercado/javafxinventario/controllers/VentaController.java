@@ -748,7 +748,6 @@ public class VentaController implements Initializable {
                                   getTotalItemsCount() + " unidades en total";
             
             // Log transaction - using the TransactionModule
-            // The transaction module already records this in the accounting module
             boolean success;
             if (modoOffline) {
                 success = transactionModule.logOfflineTransaction(items, paymentMethod, total, descuento);
@@ -761,12 +760,25 @@ public class VentaController implements Initializable {
                 return;
             }
             
-            // REMOVED: The second transaction recording to avoid duplicates
-            // The transaction is already recorded in the accounting module via TransactionModule
+            // Verify that the transaction was correctly recorded in the database
+            try {
+                // This is just a debug check - in a real application, we might not need this
+                List<Transaction> recentTransactions = accountingModule.getTransactionsByPeriod("diario");
+                boolean foundInAccounting = recentTransactions.stream()
+                    .filter(tx -> Math.abs(tx.getAmount() - total) < 0.01)
+                    .findAny()
+                    .isPresent();
+                    
+                if (!foundInAccounting) {
+                    System.err.println("Warning: Transaction may not have been properly recorded in accounting system");
+                } else {
+                    System.out.println("Transaction successfully verified in accounting system");
+                }
+            } catch (Exception e) {
+                System.err.println("Error verifying transaction in accounting system: " + e.getMessage());
+            }
             
             // Update the transaction details display
-            transactionModule.displayAccountingTransactions();
-            
             statusLabel.setText("Venta registrada con éxito");
         } catch (NumberFormatException e) {
             mostrarError("Error en formato de números: " + e.getMessage() + 
