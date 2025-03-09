@@ -9,12 +9,14 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.apache.poi.ss.usermodel.*;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import com.minimercado.javafxinventario.DAO.AccountingDAO;
 
 public class AccountingModule {
     private List<Transaction> transactions;
     private BalanceReport balanceReport;
     private List<String> auditLog;
     private static AccountingModule instance;
+    private AccountingDAO accountingDAO; // Add DAO reference
     
     // Singleton pattern para acceso global
     public static synchronized AccountingModule getInstance() {
@@ -28,6 +30,7 @@ public class AccountingModule {
         transactions = new ArrayList<>();
         balanceReport = new BalanceReport();
         auditLog = new ArrayList<>();
+        accountingDAO = new AccountingDAO(); // Initialize the DAO
     }
     
     public void recordTransaction(Transaction tx) {
@@ -47,6 +50,15 @@ public class AccountingModule {
         
         // Notificar al balance report
         balanceReport.updateBalance(tx);
+        
+        // Save transaction to database
+        boolean savedToDb = accountingDAO.recordTransaction(tx);
+        if (!savedToDb) {
+            addAuditEntry("ERROR: No se pudo guardar la transacción en la base de datos: " + tx.getId());
+            System.err.println("Error saving transaction to database: " + tx.getId());
+        } else {
+            addAuditEntry("Transacción guardada en la base de datos: " + tx.getId());
+        }
     }
     
     public List<Transaction> getTransactions() {

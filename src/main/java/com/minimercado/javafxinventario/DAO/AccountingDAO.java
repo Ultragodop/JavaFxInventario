@@ -26,6 +26,12 @@ public class AccountingDAO {
     public boolean recordTransaction(Transaction transaction) {
         Connection conn = null;
         try {
+            // Check if the transaction already exists to avoid duplicates
+            if (transactionExists(transaction.getId())) {
+                System.out.println("Transaction already exists in database, skipping: " + transaction.getId());
+                return true; // Consider it a success since it's already there
+            }
+            
             conn = DatabaseConnection.getConnection();
             conn.setAutoCommit(false);
             
@@ -40,14 +46,20 @@ public class AccountingDAO {
                 stmt.setDouble(4, transaction.getAmount());
                 stmt.setString(5, transaction.getDescription());
                 
-                stmt.executeUpdate();
+                int rowsAffected = stmt.executeUpdate();
+                if (rowsAffected == 0) {
+                    throw new SQLException("Insert failed, no rows affected.");
+                }
+                System.out.println("Transaction recorded in database: " + transaction.getId());
             }
             
             // Create a journal entry for this transaction
             if (transaction.getType().startsWith("venta")) {
                 createSaleJournalEntry(conn, transaction);
+                System.out.println("Sale journal entry created for transaction: " + transaction.getId());
             } else if (transaction.getType().contains("reversal")) {
                 createReversalJournalEntry(conn, transaction);
+                System.out.println("Reversal journal entry created for transaction: " + transaction.getId());
             }
             
             conn.commit();
