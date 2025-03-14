@@ -13,10 +13,10 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.control.Pagination;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -28,6 +28,12 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.CheckBox;
+import java.util.ArrayList;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.stage.Modality;
+import java.io.IOException;
 
 public class InventoryViewController {
     @FXML private HBox searchBox;
@@ -40,6 +46,7 @@ public class InventoryViewController {
     @FXML private TableColumn<Product, Double> priceColumn;
     @FXML private TableColumn<Product, String> categoryColumn;
     @FXML private TableColumn<Product, String> supplierColumn;
+    @FXML private TableColumn<Product, Date> expirationDateColumn; // Nueva columna de fecha de vencimiento
     
     // New fields for filter
     @FXML private ComboBox<String> filterCategoryCombo;
@@ -115,7 +122,6 @@ public class InventoryViewController {
     @FXML private Label statusLabelDelete;
     
     @FXML private StackPane optionsStack;
-    @FXML private Pagination pagination;
     
     private InventoryDAO inventoryDAO = new InventoryDAO();
     private ObservableList<Product> productList = FXCollections.observableArrayList();
@@ -126,12 +132,16 @@ public class InventoryViewController {
     @FXML private TableView<Product> editProductsTable;
     @FXML private TableColumn<Product, String> editBarcodeColumn;
     @FXML private TableColumn<Product, String> editNameColumn;
+    @FXML private TextField editBarcodeField; // Agregar campo que faltaba
     @FXML private TextField editNameField;
     @FXML private TextField editPurchasePriceField;
     @FXML private TextField editSellingPriceField;
     @FXML private TextField editStockField;
     @FXML private TextField editReorderLevelField;
     @FXML private Button addProductFromEditButton; // New button for adding product from edit section
+    
+    // Variable para almacenar el producto seleccionado para edición
+    private Product selectedProductForEdit;
 
     // Nuevos campos para "Eliminar Producto"
     @FXML private TextField searchDeleteField;
@@ -169,6 +179,33 @@ public class InventoryViewController {
         priceColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleDoubleProperty(cellData.getValue().getSellingPrice()).asObject());
         categoryColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getCategory()));
         supplierColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getSupplier()));
+        
+        // Verificar que expirationDateColumn no sea null antes de configurarla
+        if (expirationDateColumn != null) {
+            expirationDateColumn.setCellValueFactory(cellData -> 
+                new javafx.beans.property.SimpleObjectProperty<>(cellData.getValue().getExpirationDate()));
+                
+            // Formatear la columna de fecha para mostrarla legiblemente
+            expirationDateColumn.setCellFactory(column -> {
+                return new TableCell<Product, Date>() {
+                    private final SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy");
+                    
+                    @Override
+                    protected void updateItem(Date item, boolean empty) {
+                        super.updateItem(item, empty);
+                        
+                        if (empty || item == null) {
+                            setText(null);
+                        } else {
+                            setText(format.format(item));
+                        }
+                    }
+                };
+            });
+        } else {
+            System.err.println("WARNING: expirationDateColumn is null. Check if fx:id is properly set in FXML.");
+        }
+        
         productsTable.setItems(productList);
         
         // Initialize filter category combo
@@ -218,24 +255,24 @@ public class InventoryViewController {
             searchThresholdColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleIntegerProperty(cellData.getValue().getReorderLevel()).asString());
             searchPriceColumn.setCellValueFactory(cellData -> new javafx.beans.property.SimpleDoubleProperty(cellData.getValue().getSellingPrice()).asString());
         }
-        setupPagination();
         // Inicializar columnas y tablas de nuevos paneles
         if(editProductsTable != null) {
             editBarcodeColumn.setCellValueFactory(new PropertyValueFactory<>("barcode"));
             editNameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
+            
+            // Mejorar el manejo de eventos de selección
+            editProductsTable.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
+                if (newSelection != null) {
+                    fillEditFields(newSelection);
+                }
+            });
             
             // Add double-click event handler
             editProductsTable.setRowFactory(tv -> {
                 TableRow<Product> row = new TableRow<>();
                 row.setOnMouseClicked(event -> {
                     if (event.getClickCount() == 2 && (!row.isEmpty())) {
-                        Product selectedProduct = row.getItem();
-                        // Populate the edit fields with the product's data
-                        editNameField.setText(selectedProduct.getName());
-                        editPurchasePriceField.setText(String.valueOf(selectedProduct.getPurchasePrice()));
-                        editSellingPriceField.setText(String.valueOf(selectedProduct.getSellingPrice()));
-                        editStockField.setText(String.valueOf(selectedProduct.getStockQuantity()));
-                        editReorderLevelField.setText(String.valueOf(selectedProduct.getReorderLevel()));
+                        fillEditFields(row.getItem());
                     }
                 });
                 return row;
@@ -292,6 +329,7 @@ public class InventoryViewController {
     }
     
     private void loadProducts() {
+        // Simplificar para cargar todos los productos directamente
         List<Product> products = inventoryDAO.getAllProducts();
         productList.setAll(products);
         
@@ -397,24 +435,6 @@ public class InventoryViewController {
             alert.setContentText("Funcionalidad de exportación no implementada.");
             alert.showAndWait();
         }
-    }
-    
-    // Method for filtering by category
-    @FXML
-    private void handleFilterByCategory() {
-        String selectedCategory = filterCategoryCombo.getValue();
-        
-        if (selectedCategory == null || selectedCategory.isEmpty()) {
-            loadProducts();
-            return;
-        }
-        
-        List<Product> filteredProducts = inventoryDAO.getAllProducts().stream()
-            .filter(p -> selectedCategory.equals(p.getCategory()))
-            .collect(Collectors.toList());
-            
-        productList.setAll(filteredProducts);
-        statusLabel.setText("Mostrando productos de categoría: " + selectedCategory);
     }
     
     // Bulk update operations
@@ -571,7 +591,44 @@ public class InventoryViewController {
     // Report generation methods
     @FXML
     private void handleViewInventoryValueDetails() {
-        showReportPlaceholder("Detalles de Valor de Inventario");
+        try {
+            // Cargar el archivo FXML de la vista detallada
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/inventory-value-details.fxml"));
+            Parent detailsRoot = loader.load();
+            
+            // Obtener el controlador y pasar los datos necesarios
+            InventoryValueDetailsController controller = loader.getController();
+            
+            // Pasar la lista completa de productos y datos de resumen
+            controller.initData(
+                productList, 
+                calculateTotalInventoryValue(), 
+                productList.size(), 
+                inventoryDAO.getDistinctCategories()
+            );
+            
+            // Crear y configurar una nueva ventana para la vista detallada
+            Stage detailsStage = new Stage();
+            detailsStage.setTitle("Detalles del Valor de Inventario");
+            detailsStage.setScene(new Scene(detailsRoot));
+            detailsStage.setWidth(1000);
+            detailsStage.setHeight(700);
+            detailsStage.initModality(Modality.WINDOW_MODAL);
+            detailsStage.initOwner(inventoryValueLabel.getScene().getWindow());
+            
+            // Mostrar la ventana
+            detailsStage.show();
+        } catch (IOException e) {
+            mostrarError("Error al abrir la vista detallada: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    // Método auxiliar para calcular el valor total del inventario
+    private double calculateTotalInventoryValue() {
+        return productList.stream()
+            .mapToDouble(p -> p.getStockQuantity() * p.getSellingPrice())
+            .sum();
     }
     
     @FXML
@@ -581,7 +638,35 @@ public class InventoryViewController {
     
     @FXML
     private void handleViewNoMovementDetails() {
-        showReportPlaceholder("Detalles de Productos Sin Movimiento");
+        try {
+            // Cargar el archivo FXML de la vista detallada
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/no-movement-details.fxml"));
+            Parent detailsRoot = loader.load();
+            
+            // Obtener el controlador y pasar los datos necesarios
+            NoMovementDetailsController controller = loader.getController();
+            
+            // Obtener productos sin movimiento (aquí podrías filtrar los productos que no han tenido movimiento)
+            List<Product> noMovementProducts = inventoryDAO.getProductsWithoutMovement();
+            
+            // Pasar los datos al controlador
+            controller.initData(noMovementProducts);
+            
+            // Crear y configurar una nueva ventana para la vista detallada
+            Stage detailsStage = new Stage();
+            detailsStage.setTitle("Detalles de Productos Sin Movimiento");
+            detailsStage.setScene(new Scene(detailsRoot));
+            detailsStage.setWidth(1000);
+            detailsStage.setHeight(700);
+            detailsStage.initModality(Modality.WINDOW_MODAL);
+            detailsStage.initOwner(noMovementCountLabel.getScene().getWindow());
+            
+            // Mostrar la ventana
+            detailsStage.show();
+        } catch (IOException e) {
+            mostrarError("Error al abrir la vista detallada: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
     
     @FXML
@@ -607,17 +692,22 @@ public class InventoryViewController {
         alert.showAndWait();
     }
     
-    private void setupPagination() {
-        if(pagination != null) {
-            pagination.setPageFactory(pageIndex -> {
-                loadPage(pageIndex);
-                return productsTable; 
-            });
+    // Refactorizar método de búsqueda para trabajar sin paginación
+    @FXML
+    protected void handleSearchProduct() {
+        String query = searchField.getText().trim();
+        if (query.isEmpty()) {
+            // Reset to show all products
+            loadProducts();
+        } else {
+            // Filter products based on search query
+            List<Product> searchResults = inventoryDAO.searchProducts(query);
+            productList.setAll(searchResults);
+            
+            // Update status message
+            statusLabel.setText(String.format("Se encontraron %d productos que coinciden con '%s'", 
+                    searchResults.size(), query));
         }
-    }
-
-    private void loadPage(int pageIndex) {
-        // ...implementación simple de paginación...
     }
     
     // Método genérico para actualizar resultados de búsqueda en un TableView según un TextField
@@ -731,16 +821,6 @@ public class InventoryViewController {
         inventoryDAO.deleteProduct(selected.getBarcode());
         loadProducts();
         statusLabel.setText("Producto eliminado exitosamente.");
-    }
-    
-    @FXML
-    protected void handleSearchProduct() {
-        String query = searchField.getText().trim();
-        if(query.isEmpty()){
-            loadProducts();
-        } else {
-            productList.setAll(inventoryDAO.searchProducts(query));
-        }
     }
     
     // Manejo de paneles: ocultar todos y mostrar solo el deseado
@@ -858,27 +938,37 @@ public class InventoryViewController {
         String query = searchEditField.getText().trim();
         if(query.isEmpty()){
             editProductsTable.getItems().clear();
+            statusLabel.setText("Ingrese un criterio de búsqueda.");
             return;
         }
         ObservableList<Product> results = FXCollections.observableArrayList(inventoryDAO.searchProducts(query));
         editProductsTable.setItems(results);
+        
+        if (results.isEmpty()) {
+            statusLabel.setText("No se encontraron productos que coincidan con: " + query);
+        } else {
+            statusLabel.setText("Se encontraron " + results.size() + " productos. Seleccione uno para editar.");
+        }
     }
     @FXML
     private void handleUpdateSelectedProduct() {
-        Product selected = editProductsTable.getSelectionModel().getSelectedItem();
-        if(selected == null) {
-            mostrarError("Seleccione un producto para editar");
+        if(selectedProductForEdit == null) {
+            mostrarError("Primero debe seleccionar un producto de la tabla para editar");
             return;
         }
+        
         try {
-            selected.setName(editNameField.getText());
-            selected.setPurchasePrice(Double.parseDouble(editPurchasePriceField.getText()));
-            selected.setSellingPrice(Double.parseDouble(editSellingPriceField.getText()));
-            selected.setStockQuantity(Integer.parseInt(editStockField.getText()));
-            selected.setReorderLevel(Integer.parseInt(editReorderLevelField.getText()));
-            if(inventoryDAO.updateProduct(selected)) {
+            selectedProductForEdit.setName(editNameField.getText());
+            selectedProductForEdit.setPurchasePrice(Double.parseDouble(editPurchasePriceField.getText()));
+            selectedProductForEdit.setSellingPrice(Double.parseDouble(editSellingPriceField.getText()));
+            selectedProductForEdit.setStockQuantity(Integer.parseInt(editStockField.getText()));
+            selectedProductForEdit.setReorderLevel(Integer.parseInt(editReorderLevelField.getText()));
+            
+            if(inventoryDAO.updateProduct(selectedProductForEdit)) {
                 mostrarMensaje("Producto actualizado exitosamente");
                 loadProducts();
+                // Actualizar la tabla de edición
+                editProductsTable.refresh();
             } else {
                 mostrarError("No se pudo actualizar el producto");
             }
@@ -957,7 +1047,37 @@ public class InventoryViewController {
         // Limpia campos del panel de edición
         searchEditField.clear();
         editProductsTable.getItems().clear();
-        // ...existing code para limpiar formulario de edición...
+        if (editBarcodeField != null) editBarcodeField.clear();
+        editNameField.clear();
+        editPurchasePriceField.clear();
+        editSellingPriceField.clear();
+        editStockField.clear();
+        editReorderLevelField.clear();
+        selectedProductForEdit = null;
+        statusLabel.setText("Edición cancelada");
+    }
+
+    /**
+     * Método centralizado para llenar los campos de edición
+     * y almacenar el producto seleccionado
+     */
+    private void fillEditFields(Product product) {
+        if (product == null) return;
+        
+        selectedProductForEdit = product;
+        
+        // Populate all edit fields
+        if (editBarcodeField != null) {
+            editBarcodeField.setText(product.getBarcode());
+        }
+        editNameField.setText(product.getName());
+        editPurchasePriceField.setText(String.valueOf(product.getPurchasePrice()));
+        editSellingPriceField.setText(String.valueOf(product.getSellingPrice()));
+        editStockField.setText(String.valueOf(product.getStockQuantity()));
+        editReorderLevelField.setText(String.valueOf(product.getReorderLevel()));
+        
+        // Mostrar mensaje informativo
+        statusLabel.setText("Producto seleccionado para edición: " + product.getName());
     }
 
     // Métodos para "Eliminar Producto"
@@ -1138,5 +1258,42 @@ public class InventoryViewController {
         bulkNameColumn = nameCol;
         bulkCurrentPriceColumn = currentPriceCol;
         bulkNewPriceColumn = newPriceCol;
+    }
+
+    @FXML
+    private void handleFilterByCategory() {
+        try {
+            // Cargar la ventana de filtros avanzados
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/advanced-filter.fxml"));
+            Parent root = loader.load();
+            
+            // Obtener el controlador y pasar datos necesarios
+            AdvancedFilterController controller = loader.getController();
+            controller.initData(inventoryDAO, productList);
+            
+            // Configurar la ventana modal
+            Stage filterStage = new Stage();
+            filterStage.setTitle("Filtros Avanzados");
+            filterStage.setScene(new Scene(root));
+            filterStage.initModality(Modality.WINDOW_MODAL);
+            filterStage.initOwner(productsTable.getScene().getWindow());
+            
+            // Configurar el callback para cuando se apliquen los filtros
+            controller.setFilterCallback(filteredResults -> {
+                // Actualizar la tabla con los resultados filtrados
+                productList.setAll(filteredResults);
+                
+                // Actualizar mensaje de estado
+                statusLabel.setText(String.format("Mostrando %d productos con los filtros aplicados", 
+                        filteredResults.size()));
+            });
+            
+            // Mostrar la ventana y esperar hasta que se cierre
+            filterStage.showAndWait();
+            
+        } catch (IOException e) {
+            mostrarError("Error al abrir la ventana de filtros: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

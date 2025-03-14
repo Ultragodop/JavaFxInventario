@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.chart.*?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane fx:id="rootPane" xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.minimercado.javafxinventario.controllers.InventoryValueDetailsController"
+            prefHeight="700.0" prefWidth="1000.0">
+            
+    <top>
+        <VBox spacing="10" style="-fx-padding: 10;">
+            <HBox alignment="CENTER" style="-fx-font-size: 20px; -fx-font-weight: bold;">
+                <Label text="Detalles del Valor de Inventario"/>
+            </HBox>
+            
+            <!-- Resumen general -->
+            <GridPane hgap="20" vgap="10" style="-fx-padding: 10; -fx-background-color: #f4f4f4; -fx-background-radius: 5;">
+                <columnConstraints>
+                    <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0"/>
+                    <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0"/>
+                    <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0"/>
+                </columnConstraints>
+                <rowConstraints>
+                    <RowConstraints vgrow="SOMETIMES" minHeight="10.0" prefHeight="30.0"/>
+                    <RowConstraints vgrow="SOMETIMES" minHeight="10.0" prefHeight="30.0"/>
+                </rowConstraints>
+                
+                <Label text="Valor total del inventario:" GridPane.columnIndex="0" GridPane.rowIndex="0"/>
+                <Label fx:id="totalValueLabel" text="S0.00" style="-fx-font-weight: bold;"
+                       GridPane.columnIndex="1" GridPane.rowIndex="0"/>
+                       
+                <Label text="Cantidad total de productos:" GridPane.columnIndex="0" GridPane.rowIndex="1"/>
+                <Label fx:id="totalProductsLabel" text="0" style="-fx-font-weight: bold;" 
+                       GridPane.columnIndex="1" GridPane.rowIndex="1"/>
+            </GridPane>
+            
+            <!-- Opciones de filtrado -->
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label text="Filtrar por categoría:"/>
+                <ComboBox fx:id="filterCategoryCombo" prefWidth="200"/>
+                
+                <Separator orientation="VERTICAL">
+                    <HBox.margin>
+                        <Insets left="10" right="10"/>
+                    </HBox.margin>
+                </Separator>
+                
+                <Label text="Filtrar por fecha de vencimiento posterior a:"/>
+                <DatePicker fx:id="expirationFilterDatePicker"/>
+            </HBox>
+        </VBox>
+    </top>
+    
+    <center>
+        <TabPane tabClosingPolicy="UNAVAILABLE">
+            <!-- Tab de desglose por categorías -->
+            <Tab text="Desglose por Categorías">
+                <BorderPane>
+                    <center>
+                        <TableView fx:id="categoryTable">
+                            <columns>
+                                <TableColumn fx:id="categoryNameColumn" text="Categoría" prefWidth="300"/>
+                                <TableColumn fx:id="categoryCountColumn" text="Cantidad de Productos" prefWidth="150"/>
+                                <TableColumn fx:id="categoryValueColumn" text="Valor Total" prefWidth="150"/>
+                            </columns>
+                        </TableView>
+                    </center>
+                    <right>
+                        <PieChart fx:id="categoryPieChart" title="Distribución por Categoría" 
+                                 prefWidth="400" legendVisible="true"/>
+                    </right>
+                </BorderPane>
+            </Tab>
+            
+            <!-- Tab de listado detallado -->
+            <Tab text="Listado Detallado">
+                <TableView fx:id="productsTable">
+                    <columns>
+                        <TableColumn fx:id="codeColumn" text="Código" prefWidth="100"/>
+                        <TableColumn fx:id="nameColumn" text="Nombre" prefWidth="200"/>
+                        <TableColumn fx:id="categoryColumn" text="Categoría" prefWidth="120"/>
+                        <TableColumn fx:id="stockColumn" text="Cantidad" prefWidth="80"/>
+                        <TableColumn fx:id="priceColumn" text="Precio Unitario" prefWidth="100"/>
+                        <TableColumn fx:id="totalValueColumn" text="Valor Total" prefWidth="100"/>
+                        <TableColumn fx:id="expirationColumn" text="Fecha Vencimiento" prefWidth="120"/>
+                    </columns>
+                </TableView>
+            </Tab>
+            
+            <!-- Tab de alertas y advertencias -->
+            <Tab text="Alertas y Advertencias">
+                <VBox spacing="10">
+                    <Label text="Productos que requieren atención:" style="-fx-font-weight: bold;"/>
+                    <TableView fx:id="alertsTable" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="alertCodeColumn" text="Código" prefWidth="100"/>
+                            <TableColumn fx:id="alertNameColumn" text="Nombre" prefWidth="200"/>
+                            <TableColumn fx:id="alertTypeColumn" text="Tipo de Alerta" prefWidth="120"/>
+                            <TableColumn fx:id="alertDescriptionColumn" text="Descripción" prefWidth="300"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+            </Tab>
+            
+            <!-- Tab de gráficos y estadísticas -->
+            <Tab text="Estadísticas">
+                <VBox spacing="20">
+                    <BarChart fx:id="topProductsBarChart" title="Top 10 Productos por Valor" 
+                             prefHeight="300" legendVisible="true">
+                        <xAxis>
+                            <CategoryAxis label="Producto"/>
+                        </xAxis>
+                        <yAxis>
+                            <NumberAxis label="Valor ($)"/>
+                        </yAxis>
+                    </BarChart>
+                </VBox>
+            </Tab>
+        </TabPane>
+    </center>
+    
+    <bottom>
+        <HBox alignment="CENTER_RIGHT" spacing="10" style="-fx-padding: 10;">
+            <Button fx:id="exportButton" text="Exportar a Excel/PDF" styleClass="button-primary"/>
+            <Button fx:id="printButton" text="Imprimir" styleClass="button-secondary"/>
+        </HBox>
+    </bottom>
+</BorderPane>

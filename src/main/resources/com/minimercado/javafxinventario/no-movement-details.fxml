@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.minimercado.javafxinventario.controllers.NoMovementDetailsController"
+            stylesheets="/com/minimercado/javafxinventario/styles.css"
+            prefHeight="700.0" prefWidth="1000.0">
+            
+    <top>
+        <VBox spacing="10">
+            <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+            <Label text="Productos Sin Movimiento" styleClass="title-label"/>
+            
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label text="Filtrar por:"/>
+                <ComboBox fx:id="actionFilterComboBox" prefWidth="200"/>
+                <Button text="Aplicar Filtro" onAction="#handleApplyFilter"/>
+                <Separator orientation="VERTICAL"/>
+                <TextField fx:id="searchField" promptText="Buscar por nombre, código o categoría" HBox.hgrow="ALWAYS"/>
+            </HBox>
+            
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label fx:id="totalProductsLabel" text="Total de productos: 0"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Label fx:id="totalValueLabel" text="Valor total: $0.00"/>
+                <Button text="Exportar Datos" onAction="#handleExportData"/>
+            </HBox>
+        </VBox>
+    </top>
+    
+    <center>
+        <SplitPane dividerPositions="0.7" orientation="VERTICAL">
+            <TableView fx:id="noMovementTable" VBox.vgrow="ALWAYS">
+                <columns>
+                    <TableColumn fx:id="barcodeColumn" text="Código" prefWidth="100"/>
+                    <TableColumn fx:id="nameColumn" text="Nombre" prefWidth="150"/>
+                    <TableColumn fx:id="categoryColumn" text="Categoría" prefWidth="100"/>
+                    <TableColumn fx:id="stockColumn" text="Stock" prefWidth="70"/>
+                    <TableColumn fx:id="lastEntryDateColumn" text="Última Entrada" prefWidth="100"/>
+                    <TableColumn fx:id="lastSaleDateColumn" text="Última Venta" prefWidth="100"/>
+                    <TableColumn fx:id="daysSinceLastSaleColumn" text="Días sin Venta" prefWidth="100"/>
+                    <TableColumn fx:id="daysInInventoryColumn" text="Días en Inventario" prefWidth="100"/>
+                    <TableColumn fx:id="unitCostColumn" text="Costo Unitario" prefWidth="90"/>
+                    <TableColumn fx:id="totalValueColumn" text="Valor Total" prefWidth="90"/>
+                    <TableColumn fx:id="salePriceColumn" text="Precio Venta" prefWidth="90"/>
+                    <TableColumn fx:id="expirationDateColumn" text="Vencimiento" prefWidth="100"/>
+                    <TableColumn fx:id="statusColumn" text="Estado" prefWidth="100"/>
+                </columns>
+            </TableView>
+            
+            <VBox spacing="10">
+                <padding><Insets top="10" right="10" bottom="10" left="10"/></padding>
+                <Label text="Notas y Acciones" styleClass="section-header"/>
+                <TextArea fx:id="notesTextArea" promptText="Notas sobre el producto seleccionado" VBox.vgrow="ALWAYS"/>
+                <HBox spacing="10" alignment="CENTER_RIGHT">
+                    <Label text="Acción a realizar:"/>
+                    <ComboBox fx:id="actionComboBox" prefWidth="200"/>
+                    <Button fx:id="applyActionButton" text="Aplicar Acción" onAction="#handleApplyAction"/>
+                </HBox>
+            </VBox>
+        </SplitPane>
+    </center>
+</BorderPane>

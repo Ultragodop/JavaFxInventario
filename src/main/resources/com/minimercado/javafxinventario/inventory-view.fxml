@@ -30,8 +30,7 @@
                         <HBox spacing="10" alignment="CENTER_RIGHT">
                             <Button text="Importar" onAction="#handleImportProducts" styleClass="button-secondary"/>
                             <Button text="Exportar" onAction="#handleExportProducts" styleClass="button-secondary"/>
-                            <ComboBox fx:id="filterCategoryCombo" promptText="Filtrar por categoría" prefWidth="180"/>
-                            <Button text="Filtrar" onAction="#handleFilterByCategory" styleClass="button-primary"/>
+                            <Button text="Filtros Avanzados" onAction="#handleFilterByCategory" styleClass="button-primary"/>
                         </HBox>
                         <TableView fx:id="productsTable" VBox.vgrow="ALWAYS">
                             <columns>
@@ -45,7 +44,6 @@
                                 <TableColumn fx:id="supplierColumn" text="Proveedor" prefWidth="150"/>
                             </columns>
                         </TableView>
-                        <Pagination fx:id="pagination" maxPageIndicatorCount="5"/>
                     </VBox>
                 </Tab>
                 <Tab text="Agregar Producto">
@@ -157,7 +155,7 @@
                         </GridPane>
                         
                         <HBox alignment="CENTER" spacing="10">
-                            <Button text="Guardar Cambios" onAction="#handleUpdateProduct" styleClass="button-primary"/>
+                            <Button text="Guardar Cambios" onAction="#handleUpdateSelectedProduct" styleClass="button-primary"/>
                             <Button text="Cancelar" onAction="#handleCancelEdit" styleClass="button"/>
                         </HBox>
                     </VBox>

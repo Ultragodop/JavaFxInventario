@@ -60,6 +60,7 @@ public class MainMenuController {
     private void loadModule(String fxmlPath) {
         try {
             Parent moduleRoot = FXMLLoader.load(getClass().getResource(fxmlPath));
+
             contentPane.getChildren().setAll(moduleRoot);
         } catch(Exception e) {
             e.printStackTrace();

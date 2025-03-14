@@ -851,4 +851,93 @@ public class InventoryDAO {
         
         return categories;
     }
+
+    /**
+     * Gets products that have had no movement (sales) for a specified period
+     * @param days Number of days to check for no movement (default 30)
+     * @return List of products without movement
+     */
+    public List<Product> getProductsWithoutMovement(int days) {
+        List<Product> products = new ArrayList<>();
+        String sql = "SELECT p.* FROM products p WHERE p.active = 1 AND " +
+                    "(p.barcode NOT IN (SELECT DISTINCT product_id FROM inventory_movements " +
+                    "WHERE movement_type = 'SALE' AND movement_date >= DATE_SUB(NOW(), INTERVAL ? DAY)) " +
+                    "OR p.barcode NOT IN (SELECT DISTINCT product_id FROM inventory_movements))";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setInt(1, days);
+            ResultSet rs = stmt.executeQuery();
+            
+            while (rs.next()) {
+                products.add(mapResultSetToProduct(rs));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting products without movement: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return products;
+    }
+    
+    /**
+     * Gets products without movement using default period of 30 days
+     * @return List of products without movement in the last 30 days
+     */
+    public List<Product> getProductsWithoutMovement() {
+        return getProductsWithoutMovement(30);
+    }
+
+    /**
+     * Gets the last entry date (purchase or addition) for a product
+     * @param barcode Product barcode
+     * @return Date of last entry or null if no entry found
+     */
+    public Date getLastEntryDate(String barcode) {
+        String sql = "SELECT MAX(movement_date) as last_entry FROM inventory_movements " +
+                    "WHERE product_id = ? AND (movement_type = 'PURCHASE_RECEIVED' OR movement_type = 'ADDITION')";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setString(1, barcode);
+            ResultSet rs = stmt.executeQuery();
+            
+            if (rs.next()) {
+                return rs.getTimestamp("last_entry");
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting last entry date: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Gets the last sale date for a product
+     * @param barcode Product barcode
+     * @return Date of last sale or null if no sale found
+     */
+    public Date getLastSaleDate(String barcode) {
+        String sql = "SELECT MAX(movement_date) as last_sale FROM inventory_movements " +
+                    "WHERE product_id = ? AND movement_type = 'SALE'";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            
+            stmt.setString(1, barcode);
+            ResultSet rs = stmt.executeQuery();
+            
+            if (rs.next()) {
+                return rs.getTimestamp("last_sale");
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting last sale date: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return null;
+    }
 }

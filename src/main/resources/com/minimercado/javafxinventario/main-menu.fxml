@@ -1,18 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<?import javafx.scene.layout.BorderPane?>
-<?import javafx.scene.layout.HBox?>
-<?import javafx.scene.layout.StackPane?>
-<?import javafx.scene.layout.VBox?>
-<?import javafx.scene.control.Button?>
-<?import javafx.scene.control.MenuBar?>
-<?import javafx.scene.control.Menu?>
-<?import javafx.scene.control.MenuItem?>
-<?import javafx.scene.control.SeparatorMenuItem?>
-<?import javafx.geometry.Insets?>
 
-<BorderPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml" 
-           fx:controller="com.minimercado.javafxinventario.controllers.MainMenuController"
-           stylesheets="@styles.css">
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane stylesheets="@styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.minimercado.javafxinventario.controllers.MainMenuController">
     <top>
         <VBox>
             <MenuBar>
@@ -22,20 +14,20 @@
                     <MenuItem text="Exit" />
                 </Menu>
                 <Menu text="View">
-                    <MenuItem text="Toggle Theme" onAction="#handleToggleTheme" />
-                    <MenuItem text="Theme Settings" onAction="#handleThemeSettings" />
+                    <MenuItem onAction="#handleToggleTheme" text="Toggle Theme" />
+                    <MenuItem onAction="#handleThemeSettings" text="Theme Settings" />
                 </Menu>
                 <Menu text="Help">
                     <MenuItem text="About" />
                 </Menu>
             </MenuBar>
-            
+
             <HBox spacing="10" style="-fx-padding: 10;" styleClass="menu-bar">
-                <Button text="Buscar Productos" onAction="#handleBuscarProductos" styleClass="button-primary"/>
-                <Button text="Módulo de Ventas" onAction="#handleVentas" styleClass="button-success"/>
-                <Button text="Módulo Contable" onAction="#handleContabilidad" styleClass="button-primary"/>
-                <Button text="Órdenes de Compra" onAction="#handlePurchaseOrder" styleClass="button-primary"/>
-                <Button text="Proveedores" onAction="#handleSuppliers" styleClass="button-primary"/>
+                <Button onAction="#handleBuscarProductos" styleClass="button-primary" text="Buscar Productos" />
+                <Button onAction="#handleVentas" styleClass="button-success" text="Módulo de Ventas" />
+                <Button onAction="#handleContabilidad" styleClass="button-primary" text="Módulo Contable" />
+                <Button onAction="#handlePurchaseOrder" styleClass="button-primary" text="Órdenes de Compra" />
+                <Button onAction="#handleSuppliers" styleClass="button-primary" text="Proveedores" />
             </HBox>
         </VBox>
     </top>
@@ -45,11 +37,11 @@
         </StackPane>
     </center>
     <bottom>
-        <HBox alignment="CENTER_RIGHT" style="-fx-padding: 5;" styleClass="status-bar">
+        <HBox alignment="CENTER_RIGHT" prefWidth="666.0" style="-fx-padding: 5;" styleClass="status-bar">
             <padding>
-                <Insets top="5" right="10" bottom="5" left="10"/>
+                <Insets bottom="5" left="10" right="10" top="5" />
             </padding>
-            <Button text="Toggle Theme" onAction="#handleToggleTheme" styleClass="small-button"/>
+            <Button onAction="#handleToggleTheme" styleClass="small-button" text="Toggle Theme" />
         </HBox>
     </bottom>
 </BorderPane>

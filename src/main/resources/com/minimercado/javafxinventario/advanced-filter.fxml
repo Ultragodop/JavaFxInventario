@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.minimercado.javafxinventario.controllers.AdvancedFilterController"
+            prefHeight="450.0" prefWidth="500.0">
+            
+    <top>
+        <VBox spacing="10" style="-fx-padding: 15;">
+            <Label text="Filtros Avanzados" style="-fx-font-size: 18; -fx-font-weight: bold;"/>
+        </VBox>
+    </top>
+    
+    <center>
+        <VBox spacing="15" style="-fx-padding: 10;">
+            <!-- Filtro por categoría -->
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label text="Categoría:" minWidth="150"/>
+                <ComboBox fx:id="categoryCombo" prefWidth="250"/>
+            </HBox>
+            
+            <!-- Filtro por rango de precios -->
+            <VBox spacing="5">
+                <Label text="Rango de precios:"/>
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Mínimo:" minWidth="60"/>
+                    <TextField fx:id="minPriceField" prefWidth="80" promptText="Mínimo"/>
+                    <Slider fx:id="minPriceSlider" prefWidth="250" min="0" max="10000" showTickLabels="true" showTickMarks="true"/>
+                </HBox>
+                <HBox spacing="10" alignment="CENTER_LEFT">
+                    <Label text="Máximo:" minWidth="60"/>
+                    <TextField fx:id="maxPriceField" prefWidth="80" promptText="Máximo"/>
+                    <Slider fx:id="maxPriceSlider" prefWidth="250" min="0" max="10000" showTickLabels="true" showTickMarks="true"/>
+                </HBox>
+            </VBox>
+            
+            <!-- Filtro por stock -->
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label text="Stock:" minWidth="150"/>
+                <TextField fx:id="minStockField" prefWidth="80" promptText="Mínimo"/>
+                <Label text="hasta"/>
+                <TextField fx:id="maxStockField" prefWidth="80" promptText="Máximo"/>
+            </HBox>
+            
+            <!-- Filtro por fecha de vencimiento -->
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label text="Fecha de vencimiento:" minWidth="150"/>
+                <ComboBox fx:id="expiryDateCombo" prefWidth="250"/>
+            </HBox>
+            
+            <!-- Filtro por proveedor -->
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label text="Proveedor:" minWidth="150"/>
+                <ComboBox fx:id="supplierCombo" prefWidth="250"/>
+            </HBox>
+            
+            <!-- Filtro por promoción -->
+            <HBox spacing="10" alignment="CENTER_LEFT">
+                <Label text="En promoción:" minWidth="150"/>
+                <CheckBox fx:id="promotionCheckBox"/>
+            </HBox>
+        </VBox>
+    </center>
+    
+    <bottom>
+        <HBox alignment="CENTER_RIGHT" spacing="10" style="-fx-padding: 15;">
+            <Button fx:id="clearButton" text="Limpiar Filtros" styleClass="button-secondary"/>
+            <Button fx:id="cancelButton" text="Cancelar" styleClass="button"/>
+            <Button fx:id="applyButton" text="Aplicar Filtros" styleClass="button-primary"/>
+        </HBox>
+    </bottom>
+</BorderPane>
