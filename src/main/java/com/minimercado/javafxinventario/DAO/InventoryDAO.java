@@ -4,6 +4,7 @@ import com.minimercado.javafxinventario.modules.Product;
 import com.minimercado.javafxinventario.modules.Supplier;
 import com.minimercado.javafxinventario.modules.PurchaseOrder;
 import com.minimercado.javafxinventario.modules.InventoryMovement;
+import com.minimercado.javafxinventario.modules.PriceHistory;
 import com.minimercado.javafxinventario.utils.DatabaseConnection;
 
 import java.sql.*;
@@ -939,5 +940,30 @@ public class InventoryDAO {
         }
         
         return null;
+    }
+
+    public List<PriceHistory> getPriceHistory(String productId) {
+        List<PriceHistory> historyList = new ArrayList<>();
+        
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            String query = "SELECT * FROM price_history WHERE product_id = ? ORDER BY date DESC";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, productId);
+            ResultSet rs = stmt.executeQuery();
+            
+            while (rs.next()) {
+                PriceHistory history = new PriceHistory();
+                history.setProductId(rs.getString("product_id"));
+                history.setDate(rs.getTimestamp("date"));
+                history.setPrice(rs.getDouble("price"));
+                history.setChangePercent(rs.getDouble("change_percent"));
+                history.setUser(rs.getString("user"));
+                historyList.add(history);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error obteniendo historial de precios: " + e.getMessage());
+        }
+        
+        return historyList;
     }
 }

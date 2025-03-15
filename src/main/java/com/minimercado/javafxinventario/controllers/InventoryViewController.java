@@ -46,7 +46,7 @@ public class InventoryViewController {
     @FXML private TableColumn<Product, Double> priceColumn;
     @FXML private TableColumn<Product, String> categoryColumn;
     @FXML private TableColumn<Product, String> supplierColumn;
-    @FXML private TableColumn<Product, Date> expirationDateColumn; // Nueva columna de fecha de vencimiento
+    @FXML private TableColumn<Product, java.util.Date> expirationDateColumn; // Nueva columna de fecha de vencimiento
     
     // New fields for filter
     @FXML private ComboBox<String> filterCategoryCombo;
@@ -676,12 +676,32 @@ public class InventoryViewController {
     
     @FXML
     private void handleGeneratePriceHistoryReport() {
-        showReportPlaceholder("Historial de Precios");
-    }
-    
-    @FXML
-    private void handleGenerateExpirationReport() {
-        showReportPlaceholder("Informe de Expiración");
+        try {
+            // Cargar el archivo FXML de la vista de historial de precios
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/price-history-report.fxml"));
+            Parent reportRoot = loader.load();
+            
+            // Obtener el controlador y pasar los datos necesarios
+            PriceHistoryReportController controller = loader.getController();
+            
+            // Pasar la lista de productos al controlador
+            controller.initData(productList, inventoryDAO);
+            
+            // Crear y configurar una nueva ventana para la vista del reporte
+            Stage reportStage = new Stage();
+            reportStage.setTitle("Historial de Precios");
+            reportStage.setScene(new Scene(reportRoot));
+            reportStage.setWidth(1000);
+            reportStage.setHeight(700);
+            reportStage.initModality(Modality.WINDOW_MODAL);
+            reportStage.initOwner(inventoryValueLabel.getScene().getWindow());
+            
+            // Mostrar la ventana
+            reportStage.show();
+        } catch (IOException e) {
+            mostrarError("Error al abrir el reporte de historial de precios: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
     
     private void showReportPlaceholder(String reportName) {
@@ -1293,6 +1313,41 @@ public class InventoryViewController {
             
         } catch (IOException e) {
             mostrarError("Error al abrir la ventana de filtros: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    @FXML
+    private void handleGenerateExpirationReport() {
+        try {
+            // Cargar el archivo FXML de la vista de reporte de vencimientos
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/expiration-report.fxml"));
+            Parent reportRoot = loader.load();
+            
+            // Obtener el controlador y pasar los datos necesarios
+            ExpirationReportController controller = loader.getController();
+            
+            // Filtrar productos con fecha de vencimiento
+            List<Product> productsWithExpiration = productList.stream()
+                .filter(p -> p.getExpirationDate() != null)
+                .collect(Collectors.toList());
+            
+            // Pasar la lista de productos al controlador
+            controller.initData(productsWithExpiration);
+            
+            // Crear y configurar una nueva ventana para la vista del reporte
+            Stage reportStage = new Stage();
+            reportStage.setTitle("Reporte de Vencimientos");
+            reportStage.setScene(new Scene(reportRoot));
+            reportStage.setWidth(1000);
+            reportStage.setHeight(700);
+            reportStage.initModality(Modality.WINDOW_MODAL);
+            reportStage.initOwner(inventoryValueLabel.getScene().getWindow());
+            
+            // Mostrar la ventana
+            reportStage.show();
+        } catch (IOException e) {
+            mostrarError("Error al abrir el reporte de vencimientos: " + e.getMessage());
             e.printStackTrace();
         }
     }
