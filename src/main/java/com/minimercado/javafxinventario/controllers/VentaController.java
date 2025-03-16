@@ -108,7 +108,7 @@ public class VentaController implements Initializable {
     private AccountingModule accountingModule;
 
     // Observable list to hold products in the current sale
-    private ObservableList<ProductoVenta> productosList;
+    private ObservableList<ProductoVenta> productosList = FXCollections.observableArrayList();
     
     // Sale totals
     private double totalVenta = 0.0;
@@ -765,8 +765,22 @@ public class VentaController implements Initializable {
             // Create detailed sale information
             String detalleVenta = "Venta de " + items.size() + " productos distintos, " + 
                                   getTotalItemsCount() + " unidades en total";
+                                  
+            // FIRST STEP: Record the sale in the database
+            int saleId = inventoryDAO.recordSale(
+                items, 
+                paymentMethod.getDisplayName(), 
+                total, 
+                descuento, 
+                detalleVenta
+            );
             
-            // Log transaction - using the TransactionModule
+            // Add sale ID to the details if successful
+            if (saleId > 0) {
+                detalleVenta = "Venta #" + saleId + ": " + detalleVenta;
+            }
+            
+            // SECOND STEP: Log transaction in accounting system
             boolean success;
             if (modoOffline) {
                 success = transactionModule.logOfflineTransaction(items, paymentMethod, total, descuento);
@@ -784,9 +798,7 @@ public class VentaController implements Initializable {
                 // This is just a debug check - in a real application, we might not need this
                 List<Transaction> recentTransactions = accountingModule.getTransactionsByPeriod("diario");
                 boolean foundInAccounting = recentTransactions.stream()
-                    .filter(tx -> Math.abs(tx.getAmount() - total) < 0.01)
-                    .findAny()
-                    .isPresent();
+                    .anyMatch(tx -> Math.abs(tx.getAmount() - total) < 0.01);
                     
                 if (!foundInAccounting) {
                     System.err.println("Warning: Transaction may not have been properly recorded in accounting system");
@@ -798,7 +810,7 @@ public class VentaController implements Initializable {
             }
             
             // Update the transaction details display
-            statusLabel.setText("Venta registrada con éxito");
+            statusLabel.setText("Venta #" + saleId + " registrada con éxito");
         } catch (NumberFormatException e) {
             mostrarError("Error en formato de números: " + e.getMessage() + 
                          ". Asegúrese de ingresar solo números válidos.");
@@ -1025,94 +1037,6 @@ public class VentaController implements Initializable {
         String[] testBarcodes = {"123456789", "234567890", "345678901"};
         for (String barcode : testBarcodes) {
             buscarYAgregarProducto(barcode);
-        }
-    }
-    
-    // Inner class to represent a product in the sale
-    public static class ProductoVenta {
-        private final SimpleStringProperty codigo;
-        private final SimpleStringProperty nombre;
-        private final SimpleIntegerProperty cantidad;
-        private final SimpleDoubleProperty precioUnitario;
-        private final SimpleDoubleProperty descuento;
-        private final SimpleDoubleProperty total;
-
-        public ProductoVenta(String codigo, String nombre, int cantidad, double precioUnitario, double descuento) {
-            this.codigo = new SimpleStringProperty(codigo);
-            this.nombre = new SimpleStringProperty(nombre);
-            this.cantidad = new SimpleIntegerProperty(cantidad);
-            this.precioUnitario = new SimpleDoubleProperty(precioUnitario);
-            this.descuento = new SimpleDoubleProperty(descuento);
-            this.total = new SimpleDoubleProperty(calcularTotal());
-        }
-
-        public String getCodigo() {
-            return codigo.get();
-        }
-
-        public String getNombre() {
-            return nombre.get();
-        }
-
-        public int getCantidad() {
-            return cantidad.get();
-        }
-
-        public void setCantidad(int cantidad) {
-            this.cantidad.set(cantidad);
-            // Update total when quantity changes
-            total.set(calcularTotal());
-        }
-
-        public double getPrecioUnitario() {
-            return precioUnitario.get();
-        }
-
-        public void setPrecioUnitario(double precioUnitario) {
-            this.precioUnitario.set(precioUnitario);
-            // Update total when price changes
-            total.set(calcularTotal());
-        }
-
-        public double getDescuento() {
-            return descuento.get();
-        }
-
-        public double getTotal() {
-            return total.get();
-        }
-
-        public double getDescuentoTotal() {
-            return descuento.get() * cantidad.get();
-        }
-
-        private double calcularTotal() {
-            return (precioUnitario.get() - descuento.get()) * cantidad.get();
-        }
-
-        // Property getters for TableView binding
-        public SimpleStringProperty codigoProperty() {
-            return codigo;
-        }
-
-        public SimpleStringProperty nombreProperty() {
-            return nombre;
-        }
-
-        public SimpleIntegerProperty cantidadProperty() {
-            return cantidad;
-        }
-
-        public SimpleDoubleProperty precioUnitarioProperty() {
-            return precioUnitario;
-        }
-
-        public SimpleDoubleProperty descuentoProperty() {
-            return descuento;
-        }
-
-        public SimpleDoubleProperty totalProperty() {
-            return total;
         }
     }
 }

@@ -9,12 +9,16 @@ import java.sql.Date;
 import java.util.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Data Access Object for the accounting module.
  * Handles database operations related to accounting entries, journal entries, and financial reports.
  */
 public class AccountingDAO {
+    
+    private static final Logger logger = Logger.getLogger(AccountingDAO.class.getName());
     
     /**
      * Records a transaction in the accounting system.
@@ -223,6 +227,85 @@ public class AccountingDAO {
     }
 
     /**
+     * Creates a transaction for an expense.
+     * @param amount The amount of the expense
+     * @param type The type of transaction
+     * @param description A description of the transaction
+     * @param paymentMethod The payment method used
+     * @param expenseDate The date of the expense
+     * @param accountCode The account code to use
+     * @param receiptNumber The receipt number for the expense
+     * @return true if the transaction was created successfully, false otherwise
+     */
+    public boolean createExpenseTransaction(double amount, String type, String description, String paymentMethod, LocalDateTime expenseDate, String accountCode, String receiptNumber) {
+        Connection conn = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            conn.setAutoCommit(false);
+
+            // Insert journal entry
+            String journalSql = "INSERT INTO journal_entries (entry_date, reference_number, description, is_posted, created_by) " +
+                    "VALUES (?, ?, ?, TRUE, ?)";
+
+            int journalEntryId;
+            try (PreparedStatement stmt = conn.prepareStatement(journalSql, Statement.RETURN_GENERATED_KEYS)) {
+                Date entryDate = Date.valueOf(expenseDate.toLocalDate());
+
+                stmt.setDate(1, entryDate);
+                stmt.setString(2, receiptNumber);
+                stmt.setString(3, description);
+                stmt.setString(4, "Sistema");
+
+                int affectedRows = stmt.executeUpdate();
+
+                if (affectedRows == 0) {
+                    throw new SQLException("Creating journal entry failed, no ID obtained.");
+                }
+
+                try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        journalEntryId = generatedKeys.getInt(1);
+                    } else {
+                        throw new SQLException("Creating journal entry failed, no ID obtained.");
+                    }
+                }
+            }
+
+            // Insert journal line items (debit and credit)
+            // Get account IDs by their account codes instead of using hardcoded IDs
+            int expenseAccountId = getAccountIdByCode(conn, accountCode);
+            int cashAccountId = getAccountIdByCode(conn, "1000"); // Assuming 1000 is cash account
+
+            // Debit Expense Account
+            insertJournalLineItem(conn, journalEntryId, expenseAccountId, "Expense: " + description, amount, 0);
+
+            // Credit Cash Account
+            insertJournalLineItem(conn, journalEntryId, cashAccountId, "Payment for: " + description, 0, amount);
+
+            conn.commit();
+            return true;
+        } catch (SQLException e) {
+            try {
+                if (conn != null) conn.rollback();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            System.err.println("Error creating expense transaction: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        } finally {
+            try {
+                if (conn != null) {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
      * Retrieves the account ID for a given account code.
      *
      * @param conn Database connection
@@ -418,49 +501,53 @@ public class AccountingDAO {
         result.put("totalExpenses", 0.0);
         result.put("netIncome", 0.0);
         
-        // Get total revenue
-        String revenueSql = "SELECT SUM(jli.credit) - SUM(jli.debit) as total " +
-                          "FROM journal_entries je " +
-                          "JOIN journal_line_items jli ON je.id = jli.journal_entry_id " +
-                          "JOIN accounts a ON jli.account_id = a.id " +
-                          "WHERE a.account_type = 'REVENUE' AND je.entry_date BETWEEN ? AND ?";
-        
-        // Get total expenses
-        String expenseSql = "SELECT SUM(jli.debit) - SUM(jli.credit) as total " +
-                          "FROM journal_entries je " +
-                          "JOIN journal_line_items jli ON je.id = jli.journal_entry_id " +
-                          "JOIN accounts a ON jli.account_id = a.id " +
-                          "WHERE a.account_type = 'EXPENSE' AND je.entry_date BETWEEN ? AND ?";
-        
         try (Connection conn = DatabaseConnection.getConnection()) {
-            // Get revenue
-            try (PreparedStatement stmt = conn.prepareStatement(revenueSql)) {
-                stmt.setDate(1, Date.valueOf(startDate));
-                stmt.setDate(2, Date.valueOf(endDate));
-                
-                try (ResultSet rs = stmt.executeQuery()) {
-                    if (rs.next()) {
-                        double revenue = rs.getDouble("total");
-                        result.put("totalRevenue", revenue);
-                    }
-                }
-            }
+            // Get total revenue
+            double revenue = calculateTotalForType(conn, "REVENUE", startDate, endDate);
+            result.put("totalRevenue", revenue);
             
-            // Get expenses
+            // Get total expenses - using a generalized query that includes all expense transactions
+            double expenses = 0.0;
+            
+            // First, get expenses from accounting journal entries
+            String expenseSql = "SELECT SUM(jli.debit) - SUM(jli.credit) as total " +
+                              "FROM journal_entries je " +
+                              "JOIN journal_line_items jli ON je.id = jli.journal_entry_id " +
+                              "JOIN accounts a ON jli.account_id = a.id " +
+                              "WHERE a.account_type = 'EXPENSE' AND je.entry_date BETWEEN ? AND ?";
+            
             try (PreparedStatement stmt = conn.prepareStatement(expenseSql)) {
                 stmt.setDate(1, Date.valueOf(startDate));
                 stmt.setDate(2, Date.valueOf(endDate));
                 
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (rs.next()) {
-                        double expenses = rs.getDouble("total");
-                        result.put("totalExpenses", expenses);
+                        expenses += rs.getDouble("total");
                     }
                 }
             }
             
+            // Next, get expenses from transaction records that might not be in journal yet
+            String transactionSql = "SELECT SUM(CASE WHEN transaction_type IN ('egreso', 'gasto', 'compra') " +
+                                    "THEN ABS(amount) ELSE 0 END) as expense_total " +
+                                    "FROM accounting_transactions " +
+                                    "WHERE DATE(transaction_date) BETWEEN ? AND ?";
+            
+            try (PreparedStatement stmt = conn.prepareStatement(transactionSql)) {
+                stmt.setDate(1, Date.valueOf(startDate));
+                stmt.setDate(2, Date.valueOf(endDate));
+                
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        expenses += rs.getDouble("expense_total");
+                    }
+                }
+            }
+            
+            result.put("totalExpenses", expenses);
+            
             // Calculate net income
-            double netIncome = result.get("totalRevenue") - result.get("totalExpenses");
+            double netIncome = revenue - expenses;
             result.put("netIncome", netIncome);
             
         } catch (SQLException e) {
@@ -469,6 +556,42 @@ public class AccountingDAO {
         }
         
         return result;
+    }
+
+    /**
+     * Helper method to calculate total for a specific account type
+     */
+    private double calculateTotalForType(Connection conn, String accountType, 
+                                       LocalDate startDate, LocalDate endDate) throws SQLException {
+        String sql;
+        
+        if ("REVENUE".equals(accountType)) {
+            sql = "SELECT SUM(jli.credit) - SUM(jli.debit) as total " +
+                  "FROM journal_entries je " +
+                  "JOIN journal_line_items jli ON je.id = jli.journal_entry_id " +
+                  "JOIN accounts a ON jli.account_id = a.id " +
+                  "WHERE a.account_type = ? AND je.entry_date BETWEEN ? AND ?";
+        } else {
+            sql = "SELECT SUM(jli.debit) - SUM(jli.credit) as total " +
+                  "FROM journal_entries je " +
+                  "JOIN journal_line_items jli ON je.id = jli.journal_entry_id " +
+                  "JOIN accounts a ON jli.account_id = a.id " +
+                  "WHERE a.account_type = ? AND je.entry_date BETWEEN ? AND ?";
+        }
+        
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, accountType);
+            stmt.setDate(2, Date.valueOf(startDate));
+            stmt.setDate(3, Date.valueOf(endDate));
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("total");
+                }
+            }
+        }
+        
+        return 0.0;
     }
     
     /**
@@ -568,5 +691,44 @@ public class AccountingDAO {
         }
         
         return false;
+    }
+
+    /**
+     * Get all transaction categories from the database
+     * 
+     * @return List of distinct transaction categories
+     */
+    public List<String> getAllCategories() {
+        List<String> categories = new ArrayList<>();
+        String sql = "SELECT DISTINCT type FROM accounting_transactions WHERE type IS NOT NULL ORDER BY type";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            
+            while (rs.next()) {
+                categories.add(rs.getString("type"));
+            }
+            
+            // If no categories found, add some defaults
+            if (categories.isEmpty()) {
+                categories.add("Ventas");
+                categories.add("Compras");
+                categories.add("Gastos");
+                categories.add("Salarios");
+                categories.add("Otros ingresos");
+                categories.add("Otros gastos");
+            }
+            
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Error getting transaction categories", e);
+            // Return default categories if there's an error
+            categories.add("Ventas");
+            categories.add("Compras");
+            categories.add("Gastos");
+            categories.add("Otros");
+        }
+        
+        return categories;
     }
 }

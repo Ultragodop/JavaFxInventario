@@ -83,4 +83,57 @@ public class ProductoVenta {
     public SimpleDoubleProperty totalProperty() {
         return total;
     }
+
+    /**
+     * Actualiza el precio unitario y recalcula el total
+     * @param precioUnitario Nuevo precio unitario
+     */
+    public void setPrecioUnitario(double precioUnitario) {
+        this.precioUnitario.set(precioUnitario);
+        // Update total when price changes
+        total.set(calcularTotal());
+    }
+
+    /**
+     * Actualiza el descuento y recalcula el total
+     * @param descuento Nuevo valor de descuento
+     */
+    public void setDescuento(double descuento) {
+        this.descuento.set(descuento);
+        // Update total when discount changes
+        total.set(calcularTotal());
+    }
+
+    /**
+     * Crea una copia del producto de venta
+     * @return Una nueva instancia con los mismos valores
+     */
+    public ProductoVenta copy() {
+        return new ProductoVenta(
+            getCodigo(),
+            getNombre(),
+            getCantidad(),
+            getPrecioUnitario(),
+            getDescuento()
+        );
+    }
+
+    /**
+     * Aumenta la cantidad en 1
+     */
+    public void aumentarCantidad() {
+        setCantidad(getCantidad() + 1);
+    }
+
+    /**
+     * Disminuye la cantidad en 1 si es mayor que 1
+     * @return true si la cantidad fue disminuida, false si ya estaba en 1
+     */
+    public boolean disminuirCantidad() {
+        if (getCantidad() > 1) {
+            setCantidad(getCantidad() - 1);
+            return true;
+        }
+        return false;
+    }
 }

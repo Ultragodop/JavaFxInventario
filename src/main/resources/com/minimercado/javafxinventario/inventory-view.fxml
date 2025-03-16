@@ -28,6 +28,8 @@
                 <Tab text="Productos">
                     <VBox spacing="10">
                         <HBox spacing="10" alignment="CENTER_RIGHT">
+                            <Label text="Filtrar por proveedor:" />
+                            <ComboBox fx:id="supplierFilterCombo" prefWidth="200" />
                             <Button text="Importar" onAction="#handleImportProducts" styleClass="button-secondary"/>
                             <Button text="Exportar" onAction="#handleExportProducts" styleClass="button-secondary"/>
                             <Button text="Filtros Avanzados" onAction="#handleFilterByCategory" styleClass="button-primary"/>
@@ -36,12 +38,13 @@
                             <columns>
                                 <TableColumn fx:id="idColumn" text="Código" prefWidth="100"/>
                                 <TableColumn fx:id="barcodeColumn" text="Código de Barras" prefWidth="120"/>
-                                <TableColumn fx:id="nameColumn" text="Nombre" prefWidth="200"/>
-                                <TableColumn fx:id="stockColumn" text="Stock" prefWidth="80"/>
-                                <TableColumn fx:id="thresholdColumn" text="Mín. Stock" prefWidth="100"/>
-                                <TableColumn fx:id="priceColumn" text="Precio" prefWidth="100"/>
+                                <TableColumn fx:id="nameColumn" text="Nombre" prefWidth="180"/>
+                                <TableColumn fx:id="stockColumn" text="Stock" prefWidth="60"/>
+                                <TableColumn fx:id="thresholdColumn" text="Mín. Stock" prefWidth="80"/>
+                                <TableColumn fx:id="priceColumn" text="Precio" prefWidth="80"/>
                                 <TableColumn fx:id="categoryColumn" text="Categoría" prefWidth="100"/>
-                                <TableColumn fx:id="supplierColumn" text="Proveedor" prefWidth="150"/>
+                                <TableColumn fx:id="expirationDateColumn" text="Fecha Vencimiento" prefWidth="120"/>
+                                <TableColumn fx:id="supplierColumn" text="Proveedor" prefWidth="120"/>
                             </columns>
                         </TableView>
                     </VBox>
@@ -154,6 +157,21 @@
                             <TextField fx:id="editReorderLevelField" GridPane.rowIndex="2" GridPane.columnIndex="3"/>
                         </GridPane>
                         
+                        <VBox spacing="5">
+                            <Label text="Proveedores:" styleClass="section-label"/>
+                            <TableView fx:id="productSuppliersTable" prefHeight="150" VBox.vgrow="NEVER">
+                                <columns>
+                                    <TableColumn fx:id="supplierNameColumn" text="Proveedor" prefWidth="150"/>
+                                    <TableColumn fx:id="supplierPriceColumn" text="Precio Compra" prefWidth="100"/>
+                                    <TableColumn fx:id="supplierPrimaryColumn" text="Principal" prefWidth="80"/>
+                                    <TableColumn fx:id="supplierActionColumn" text="Acciones" prefWidth="100"/>
+                                </columns>
+                            </TableView>
+                            <HBox spacing="5">
+                                <Button text="Agregar Proveedor" onAction="#handleAddSupplierToProduct" />
+                            </HBox>
+                        </VBox>
+
                         <HBox alignment="CENTER" spacing="10">
                             <Button text="Guardar Cambios" onAction="#handleUpdateSelectedProduct" styleClass="button-primary"/>
                             <Button text="Cancelar" onAction="#handleCancelEdit" styleClass="button"/>

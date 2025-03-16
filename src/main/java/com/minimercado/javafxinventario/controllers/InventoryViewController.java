@@ -5,11 +5,18 @@ import com.minimercado.javafxinventario.modules.Product;
 import com.minimercado.javafxinventario.modules.InventoryMovement;
 import com.minimercado.javafxinventario.modules.InventoryModule;
 import com.minimercado.javafxinventario.modules.Supplier;
+import com.minimercado.javafxinventario.modules.ProductSupplier;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.scene.Node;
 import javafx.scene.control.*;
+import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -20,20 +27,18 @@ import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Date;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.stream.Collectors;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.CheckBox;
-import java.util.ArrayList;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Modality;
 import java.io.IOException;
+import javafx.geometry.Insets;
 
 public class InventoryViewController {
     @FXML private HBox searchBox;
@@ -167,6 +172,17 @@ public class InventoryViewController {
     @FXML private TableColumn<InventoryMovement, String> movementTypeColumn;
     @FXML private TableColumn<InventoryMovement, Integer> movementQuantityColumn;
     @FXML private TableColumn<InventoryMovement, String> movementReferenceColumn;
+
+    // Verify this line matches exactly with the fx:id in your FXML file
+    @FXML private ComboBox<Supplier> supplierFilterCombo;
+    
+    @FXML private TableView<ProductSupplier> productSuppliersTable;
+    @FXML private TableColumn<ProductSupplier, String> supplierNameColumn;
+    @FXML private TableColumn<ProductSupplier, Double> supplierPriceColumn;
+    @FXML private TableColumn<ProductSupplier, Boolean> supplierPrimaryColumn;
+    @FXML private TableColumn<ProductSupplier, Void> supplierActionColumn;
+
+    private List<Supplier> allSuppliers;
 
     @FXML
     public void initialize() {
@@ -326,6 +342,24 @@ public class InventoryViewController {
         if (bulkUpdatePreviewTable != null) {
             initializeBulkUpdatePreviewTable();
         }
+
+        // Cargar proveedores en el combo de filtro
+        loadSupplierFilter();
+        
+        // Configurar tabla de proveedores del producto
+        setupProductSuppliersTable();
+        
+        // Añadir listener para filtrar cuando se selecciona un proveedor
+        if (supplierFilterCombo != null) {
+            supplierFilterCombo.valueProperty().addListener((obs, oldVal, newVal) -> {
+                handleFilterBySupplier();
+            });
+        } else {
+            System.err.println("WARNING: supplierFilterCombo is null. Check if fx:id is properly set in FXML.");
+        }
+
+        // Add debug output to verify field injection status
+        System.out.println("DEBUG: supplierFilterCombo injection status: " + (supplierFilterCombo != null ? "SUCCESS" : "FAILED"));
     }
     
     private void loadProducts() {
@@ -671,7 +705,36 @@ public class InventoryViewController {
     
     @FXML
     private void handleGenerateCategoryReport() {
-        showReportPlaceholder("Reporte de Rendimiento por Categoría");
+        try {
+            // Cargar el archivo FXML para el reporte de categorías
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/category-report.fxml"));
+            Parent reportRoot = loader.load();
+            
+            // Obtener el controlador y pasar los datos necesarios
+            CategoryReportController controller = loader.getController();
+            
+            // Agrupar productos por categoría y calcular métricas
+            Map<String, List<Product>> productsByCategory = productList.stream()
+                .collect(Collectors.groupingBy(Product::getCategory));
+            
+            // Pasar datos al controlador
+            controller.initData(productsByCategory, inventoryDAO);
+            
+            // Crear y configurar una nueva ventana para la vista del reporte
+            Stage reportStage = new Stage();
+            reportStage.setTitle("Rendimiento por Categoría");
+            reportStage.setScene(new Scene(reportRoot));
+            reportStage.setWidth(1000);
+            reportStage.setHeight(700);
+            reportStage.initModality(Modality.WINDOW_MODAL);
+            reportStage.initOwner(inventoryValueLabel.getScene().getWindow());
+            
+            // Mostrar la ventana
+            reportStage.show();
+        } catch (IOException e) {
+            mostrarError("Error al abrir el reporte de rendimiento por categoría: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
     
     @FXML
@@ -951,34 +1014,27 @@ public class InventoryViewController {
         }
         searchResultsTable.setItems(results);
     }
-
-    // Métodos para "Editar Producto"
-    @FXML
-    private void handleSearchEditProduct() {
-        String query = searchEditField.getText().trim();
-        if(query.isEmpty()){
-            editProductsTable.getItems().clear();
-            statusLabel.setText("Ingrese un criterio de búsqueda.");
-            return;
-        }
-        ObservableList<Product> results = FXCollections.observableArrayList(inventoryDAO.searchProducts(query));
-        editProductsTable.setItems(results);
-        
-        if (results.isEmpty()) {
-            statusLabel.setText("No se encontraron productos que coincidan con: " + query);
-        } else {
-            statusLabel.setText("Se encontraron " + results.size() + " productos. Seleccione uno para editar.");
-        }
-    }
+    
+    // Método para actualizar el producto seleccionado en el panel de edición
     @FXML
     private void handleUpdateSelectedProduct() {
-        if(selectedProductForEdit == null) {
-            mostrarError("Primero debe seleccionar un producto de la tabla para editar");
+        if (selectedProductForEdit == null) {
+            mostrarError("No hay producto seleccionado para actualizar");
             return;
         }
         
         try {
-            selectedProductForEdit.setName(editNameField.getText());
+            // Validate required fields
+            if (editNameField.getText().trim().isEmpty() ||
+                editPurchasePriceField.getText().trim().isEmpty() ||
+                editSellingPriceField.getText().trim().isEmpty() ||
+                editStockField.getText().trim().isEmpty() ||
+                editReorderLevelField.getText().trim().isEmpty()) {
+                mostrarError("Todos los campos son obligatorios");
+                return;
+            }
+            
+            selectedProductForEdit.setName(editNameField.getText().trim());
             selectedProductForEdit.setPurchasePrice(Double.parseDouble(editPurchasePriceField.getText()));
             selectedProductForEdit.setSellingPrice(Double.parseDouble(editSellingPriceField.getText()));
             selectedProductForEdit.setStockQuantity(Integer.parseInt(editStockField.getText()));
@@ -996,6 +1052,7 @@ public class InventoryViewController {
             mostrarError("Error al actualizar: " + e.getMessage());
         }
     }
+    
     @FXML
     private void handleAddProductFromEdit() {
         try {
@@ -1081,6 +1138,7 @@ public class InventoryViewController {
      * Método centralizado para llenar los campos de edición
      * y almacenar el producto seleccionado
      */
+    @FXML
     private void fillEditFields(Product product) {
         if (product == null) return;
         
@@ -1098,6 +1156,11 @@ public class InventoryViewController {
         
         // Mostrar mensaje informativo
         statusLabel.setText("Producto seleccionado para edición: " + product.getName());
+
+        // Cargar proveedores del producto
+        if (productSuppliersTable != null) {
+            refreshProductSupplierTable();
+        }
     }
 
     // Métodos para "Eliminar Producto"
@@ -1226,6 +1289,7 @@ public class InventoryViewController {
         Alert alert = new Alert(Alert.AlertType.ERROR, mensaje, ButtonType.OK);
         alert.showAndWait();
     }
+    
     private void mostrarMensaje(String mensaje) {
         statusLabel.setText(mensaje);
         Alert alert = new Alert(Alert.AlertType.INFORMATION, mensaje, ButtonType.OK);
@@ -1349,6 +1413,312 @@ public class InventoryViewController {
         } catch (IOException e) {
             mostrarError("Error al abrir el reporte de vencimientos: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+    
+    // Método para buscar productos en el panel de edición
+    @FXML
+    private void handleSearchEditProduct() {
+        String query = searchEditField.getText().trim();
+        if(query.isEmpty()){
+            editProductsTable.getItems().clear();
+            statusLabel.setText("Ingrese un criterio de búsqueda.");
+            return;
+        }
+        
+        ObservableList<Product> results = FXCollections.observableArrayList(inventoryDAO.searchProducts(query));
+        editProductsTable.setItems(results);
+        
+        if(results.isEmpty()){
+            statusLabel.setText("No se encontraron productos.");
+        } else {
+            statusLabel.setText("Se encontraron " + results.size() + " productos.");
+        }
+    }
+
+    private void loadSupplierFilter() {
+        try {
+            // Check if component is available
+            if (supplierFilterCombo == null) {
+                System.err.println("WARNING: supplierFilterCombo is null. Check if fx:id is properly set in FXML.");
+                return;
+            }
+            
+            // Cargar todos los proveedores
+            allSuppliers = inventoryDAO.getAllSuppliers();
+            
+            // Añadir opción "Todos los proveedores"
+            Supplier allSupplier = new Supplier();
+            allSupplier.setId(0);
+            allSupplier.setName("Todos los proveedores");
+            
+            // Crear lista para el combo
+            List<Supplier> supplierList = new ArrayList<>();
+            supplierList.add(allSupplier);
+            supplierList.addAll(allSuppliers);
+            
+            supplierFilterCombo.setItems(FXCollections.observableArrayList(supplierList));
+            supplierFilterCombo.setValue(allSupplier);
+            
+            // Configurar cómo se mostrarán los proveedores en el combo
+            supplierFilterCombo.setCellFactory((ListView<Supplier> l) -> new ListCell<Supplier>() {
+                @Override
+                protected void updateItem(Supplier supplier, boolean empty) {
+                    super.updateItem(supplier, empty);
+                    if (empty || supplier == null) {
+                        setText(null);
+                    } else {
+                        setText(supplier.getName());
+                    }
+                }
+            });
+            
+            supplierFilterCombo.setButtonCell(supplierFilterCombo.getCellFactory().call(null));
+        } catch (Exception e) {
+            System.err.println("Error cargando filtro de proveedores: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    @FXML
+    private void handleFilterBySupplier() {
+        try {
+            Supplier selectedSupplier = supplierFilterCombo.getValue();
+            
+            if (selectedSupplier == null || selectedSupplier.getId() == 0) {
+                // Mostrar todos los productos
+                loadProducts();
+            } else {
+                // Filtrar productos por proveedor
+                List<Product> filteredProducts = inventoryDAO.getProductsBySupplier(selectedSupplier.getId());
+                productList.setAll(filteredProducts);
+                
+                // Actualizar etiqueta de estado
+                statusLabel.setText("Mostrando " + filteredProducts.size() + 
+                                " productos del proveedor: " + selectedSupplier.getName());
+            }
+            
+            // Actualizar totales
+            updateTotals(productList);
+        } catch (Exception e) {
+            mostrarError("Error al filtrar por proveedor: " + e.getMessage());
+        }
+    }
+
+    private void setupProductSuppliersTable() {
+        if (productSuppliersTable == null) return;
+        
+        supplierNameColumn.setCellValueFactory(data -> 
+            new SimpleStringProperty(data.getValue().getSupplierName()));
+            
+        supplierPriceColumn.setCellValueFactory(data -> 
+            new SimpleObjectProperty<>(data.getValue().getPurchasePrice()));
+        supplierPriceColumn.setCellFactory(col -> new TableCell<ProductSupplier, Double>() {
+            @Override
+            protected void updateItem(Double price, boolean empty) {
+                super.updateItem(price, empty);
+                if (empty || price == null) {
+                    setText(null);
+                } else {
+                    setText(String.format("$%.2f", price));
+                }
+            }
+        });
+        
+        supplierPrimaryColumn.setCellValueFactory(data -> 
+            new SimpleBooleanProperty(data.getValue().isPrimary()));
+        supplierPrimaryColumn.setCellFactory(col -> new CheckBoxTableCell<>());
+        
+        // Columna de acciones
+        supplierActionColumn.setCellFactory(col -> new TableCell<ProductSupplier, Void>() {
+            private final Button deleteButton = new Button("Eliminar");
+            {
+                deleteButton.setOnAction(e -> {
+                    ProductSupplier ps = getTableView().getItems().get(getIndex());
+                    removeSupplierFromProduct(ps);
+                });
+            }
+            
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    setGraphic(deleteButton);
+                }
+            }
+        });
+    }
+
+    @FXML
+    private void handleAddSupplierToProduct() {
+        if (selectedProductForEdit == null) {
+            mostrarError("Seleccione un producto primero");
+            return;
+        }
+        
+        // Crear diálogo para seleccionar proveedor
+        Dialog<ProductSupplier> dialog = new Dialog<>();
+        dialog.setTitle("Agregar Proveedor");
+        dialog.setHeaderText("Seleccione un proveedor para el producto: " + selectedProductForEdit.getName());
+        
+        ButtonType addButton = new ButtonType("Agregar", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(addButton, ButtonType.CANCEL);
+        
+        // Crear el grid con los controles
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+        
+        // Filtrar los proveedores que no están ya asignados
+        List<Integer> existingSupplierIds = selectedProductForEdit.getSuppliers().stream()
+                .map(ProductSupplier::getSupplierId)
+                .collect(Collectors.toList());
+                
+        List<Supplier> availableSuppliers = allSuppliers.stream()
+                .filter(s -> !existingSupplierIds.contains(s.getId()))
+                .collect(Collectors.toList());
+                
+        ComboBox<Supplier> supplierCombo = new ComboBox<>(FXCollections.observableArrayList(availableSuppliers));
+        TextField priceField = new TextField("0.00");
+        CheckBox primaryCheckbox = new CheckBox("Proveedor Principal");
+        
+        // Configurar cómo se mostrarán los proveedores
+        supplierCombo.setCellFactory((ListView<Supplier> l) -> new ListCell<Supplier>() {
+            @Override
+            protected void updateItem(Supplier supplier, boolean empty) {
+                super.updateItem(supplier, empty);
+                if (empty || supplier == null) {
+                    setText(null);
+                } else {
+                    setText(supplier.getName());
+                }
+            }
+        });
+        
+        grid.add(new Label("Proveedor:"), 0, 0);
+        grid.add(supplierCombo, 1, 0);
+        grid.add(new Label("Precio de compra:"), 0, 1);
+        grid.add(priceField, 1, 1);
+        grid.add(primaryCheckbox, 1, 2);
+        
+        dialog.getDialogPane().setContent(grid);
+        
+        // Validación del formulario
+        Node addButtonNode = dialog.getDialogPane().lookupButton(addButton);
+        addButtonNode.setDisable(true);
+        
+        supplierCombo.valueProperty().addListener((obs, oldVal, newVal) -> 
+            addButtonNode.setDisable(newVal == null));
+            
+        // Configurar conversión de resultado
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == addButton) {
+                try {
+                    Supplier selectedSupplier = supplierCombo.getValue();
+                    double price = Double.parseDouble(priceField.getText().trim());
+                    boolean isPrimary = primaryCheckbox.isSelected();
+                    
+                    // Si es proveedor principal, desmarcar otros como principales
+                    if (isPrimary) {
+                        for (ProductSupplier ps : selectedProductForEdit.getSuppliers()) {
+                            ps.setPrimary(false);
+                            inventoryDAO.updateProductSupplier(ps);
+                        }
+                    }
+                    
+                    // Crear nueva relación producto-proveedor
+                    ProductSupplier ps = new ProductSupplier(
+                        selectedProductForEdit.getBarcode(),
+                        selectedSupplier.getId(),
+                        isPrimary,
+                        price
+                    );
+                    ps.setSupplierName(selectedSupplier.getName());
+                    return ps;
+                } catch (NumberFormatException e) {
+                    mostrarError("Formato de precio inválido");
+                    return null;
+                }
+            }
+            return null;
+        });
+        
+        // Mostrar el diálogo y procesar el resultado
+        Optional<ProductSupplier> result = dialog.showAndWait();
+        result.ifPresent(productSupplier -> {
+            // Guardar en base de datos y actualizar la UI
+            if (inventoryDAO.addProductSupplier(productSupplier)) {
+                selectedProductForEdit.addSupplier(productSupplier);
+                refreshProductSupplierTable();
+                mostrarMensaje("Proveedor agregado exitosamente");
+            } else {
+                mostrarError("Error al agregar proveedor");
+            }
+        });
+    }
+
+    private void refreshProductSupplierTable() {
+        if (selectedProductForEdit != null && productSuppliersTable != null) {
+            productSuppliersTable.setItems(
+                FXCollections.observableArrayList(selectedProductForEdit.getSuppliers())
+            );
+        }
+    }
+
+    private void removeSupplierFromProduct(ProductSupplier ps) {
+        if (confirmDialog("¿Está seguro de eliminar este proveedor del producto?")) {
+            if (inventoryDAO.removeProductSupplier(ps.getId())) {
+                selectedProductForEdit.getSuppliers().remove(ps);
+                refreshProductSupplierTable();
+                mostrarMensaje("Proveedor eliminado exitosamente");
+            } else {
+                mostrarError("Error al eliminar proveedor");
+            }
+        }
+    }
+
+    private boolean confirmDialog(String message) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message, ButtonType.YES, ButtonType.NO);
+        alert.setTitle("Confirmar");
+        alert.setHeaderText(null);
+        Optional<ButtonType> result = alert.showAndWait();
+        return result.isPresent() && result.get() == ButtonType.YES;
+    }
+
+    /**
+     * Updates inventory statistical totals from the provided product list
+     * @param products the list of products to calculate totals from
+     */
+    private void updateTotals(ObservableList<Product> products) {
+        try {
+            // Update total products count
+            if (totalProductsLabel != null) {
+                totalProductsLabel.setText("Total de productos: " + products.size());
+            }
+            
+            // Calculate and update inventory value
+            if (inventoryValueLabel != null) {
+                double totalValue = products.stream()
+                    .mapToDouble(p -> p.getStockQuantity() * p.getSellingPrice())
+                    .sum();
+                inventoryValueLabel.setText(String.format("$%.2f", totalValue));
+            }
+            
+            // Calculate and update critical stock count
+            if (criticalStockCountLabel != null) {
+                long criticalCount = products.stream()
+                    .filter(p -> p.getStockQuantity() <= p.getReorderLevel())
+                    .count();
+                criticalStockCountLabel.setText(String.valueOf(criticalCount));
+            }
+            
+            // Update inventory summary
+            updateInventorySummary();
+        } catch (Exception e) {
+            System.err.println("Error updating totals: " + e.getMessage());
         }
     }
 }

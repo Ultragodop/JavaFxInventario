@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
 import com.minimercado.javafxinventario.enums.PaymentMethod;
-import com.minimercado.javafxinventario.controllers.VentaController;
+import com.minimercado.javafxinventario.modules.ProductoVenta;
 
 public class TransactionModule {
     private List<Transaction> transactions;
@@ -40,19 +40,22 @@ public class TransactionModule {
         
         // Count total quantity of items
         int totalItems = 0;
-        if (!saleItems.isEmpty() && saleItems.get(0) instanceof VentaController.ProductoVenta) {
+        if (!saleItems.isEmpty() && saleItems.get(0) instanceof ProductoVenta) {
+            
             totalItems = saleItems.stream()
-                .map(item -> (VentaController.ProductoVenta)item)
-                .mapToInt(VentaController.ProductoVenta::getCantidad)
+                .map(item -> (ProductoVenta)item)
+                .mapToInt(ProductoVenta::getCantidad)
                 .sum();
         }
         
+        // Create transaction record
         Transaction tx = new Transaction(
             "venta", 
             totalConDescuento, 
             "Venta registrada con método " + method + ", " + saleItems.size() + 
             " productos, " + totalItems + " unidades, descuento: " + discount
         );
+
         
         transactions.add(tx);
         System.out.println("Transacción registrada: " + tx);
@@ -62,6 +65,7 @@ public class TransactionModule {
         
         return true;
     }
+
     
     // Método para registrar transacciones en modo offline
     public boolean logOfflineTransaction(List<?> saleItems, PaymentMethod method, double totalConDescuento, double discount) {
@@ -71,10 +75,10 @@ public class TransactionModule {
         
         // Count total quantity of items
         int totalItems = 0;
-        if (!saleItems.isEmpty() && saleItems.get(0) instanceof VentaController.ProductoVenta) {
+        if (!saleItems.isEmpty() && saleItems.get(0) instanceof ProductoVenta) {
             totalItems = saleItems.stream()
-                .map(item -> (VentaController.ProductoVenta)item)
-                .mapToInt(VentaController.ProductoVenta::getCantidad)
+                .map(item -> (ProductoVenta)item)
+                .mapToInt(ProductoVenta::getCantidad)
                 .sum();
         }
         
@@ -134,20 +138,25 @@ public class TransactionModule {
         // Agregar la transacción de reversión
         transactions.add(reversalTx);
         
-        // Actualizara el módulo contable
+        // Actualizar el módulo contable
         AccountingModule.getInstance().recordTransaction(reversalTx);
         
-        return true;
+        return true; // Añadir el retorno faltante
     }
     
-    // Método para buscar transacciones
+    // Método mejorado para buscar transacciones por descripción
     public List<Transaction> searchTransactions(String query) {
+        if (query == null || query.isEmpty()) {
+            return new ArrayList<>(transactions);
+        }
+        
+        String queryLower = query.toLowerCase();
+        
         return transactions.stream()
             .filter(tx -> 
-                tx.getDescription().toLowerCase().contains(query.toLowerCase()) ||
-                tx.getType().toLowerCase().contains(query.toLowerCase()) ||
-                tx.getId().toLowerCase().contains(query.toLowerCase())
-            )
+                (tx.getDescription() != null && tx.getDescription().toLowerCase().contains(queryLower)) ||
+                (tx.getType() != null && tx.getType().toLowerCase().contains(queryLower)) ||
+                (tx.getId() != null && tx.getId().contains(query)))
             .collect(Collectors.toList());
     }
     

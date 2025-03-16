@@ -3,41 +3,105 @@
 <?import javafx.geometry.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
 
 <BorderPane stylesheets="@styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.minimercado.javafxinventario.controllers.MainMenuController">
     <top>
         <VBox>
-            <MenuBar>
-                <Menu text="File">
-                    <MenuItem text="Settings" />
-                    <SeparatorMenuItem />
-                    <MenuItem text="Exit" />
-                </Menu>
-                <Menu text="View">
-                    <MenuItem onAction="#handleToggleTheme" text="Toggle Theme" />
-                    <MenuItem onAction="#handleThemeSettings" text="Theme Settings" />
-                </Menu>
-                <Menu text="Help">
-                    <MenuItem text="About" />
-                </Menu>
-            </MenuBar>
-
-            <HBox spacing="10" style="-fx-padding: 10;" styleClass="menu-bar">
-                <Button onAction="#handleBuscarProductos" styleClass="button-primary" text="Buscar Productos" />
-                <Button onAction="#handleVentas" styleClass="button-success" text="Módulo de Ventas" />
-                <Button onAction="#handleContabilidad" styleClass="button-primary" text="Módulo Contable" />
-                <Button onAction="#handlePurchaseOrder" styleClass="button-primary" text="Órdenes de Compra" />
-                <Button onAction="#handleSuppliers" styleClass="button-primary" text="Proveedores" />
-            </HBox>
+            <children>
+                <!-- Keep the original MenuBar -->
+                <MenuBar>
+                    <menus>
+                        <Menu mnemonicParsing="false" text="Sistema">
+                            <items>
+                                <MenuItem mnemonicParsing="false" onAction="#handleSettings" text="Configuración" />
+                                <SeparatorMenuItem mnemonicParsing="false" />
+                                <MenuItem mnemonicParsing="false" onAction="#handleExit" text="Salir" />
+                            </items>
+                        </Menu>
+                        <Menu mnemonicParsing="false" text="Inventario">
+                            <items>
+                                <MenuItem mnemonicParsing="false" onAction="#handleInventory" text="Gestión de Productos" />
+                                <MenuItem mnemonicParsing="false" onAction="#handleCategories" text="Categorías" />
+                                <MenuItem mnemonicParsing="false" onAction="#handleSuppliers" text="Proveedores" />
+                                <SeparatorMenuItem mnemonicParsing="false" />
+                                <MenuItem mnemonicParsing="false" onAction="#handleInventoryReports" text="Reportes de Inventario" />
+                            </items>
+                        </Menu>
+                        <Menu mnemonicParsing="false" text="Ventas">
+                            <items>
+                                <MenuItem mnemonicParsing="false" onAction="#handlePOS" text="Punto de Venta" />
+                                <MenuItem mnemonicParsing="false" onAction="#handleSalesSearch" text="Consultar Ventas" />
+                                <SeparatorMenuItem mnemonicParsing="false" />
+                                <MenuItem mnemonicParsing="false" onAction="#handleSalesReports" text="Reportes de Ventas" />
+                            </items>
+                        </Menu>
+                        <Menu mnemonicParsing="false" text="Compras">
+                            <items>
+                                <MenuItem mnemonicParsing="false" onAction="#handlePurchaseOrders" text="Órdenes de Compra" />
+                                <MenuItem mnemonicParsing="false" onAction="#handleReceiveProducts" text="Recibir Productos" />
+                            </items>
+                        </Menu>
+                        <Menu mnemonicParsing="false" text="Finanzas">
+                            <items>
+                                <MenuItem mnemonicParsing="false" onAction="#handleExpenses" text="Gastos" />
+                                <MenuItem mnemonicParsing="false" onAction="#handleExpenseCategories" text="Categorías de Gastos" />
+                                <MenuItem mnemonicParsing="false" onAction="#handleEmployees" text="Empleados" />
+                                <SeparatorMenuItem mnemonicParsing="false" />
+                                <MenuItem mnemonicParsing="false" onAction="#handleFinancialReports" text="Reportes Financieros" />
+                            </items>
+                        </Menu>
+                        <Menu mnemonicParsing="false" text="Ayuda">
+                            <items>
+                                <MenuItem mnemonicParsing="false" onAction="#handleAbout" text="Acerca de" />
+                                <MenuItem mnemonicParsing="false" onAction="#handleUserManual" text="Manual de Usuario" />
+                            </items>
+                        </Menu>
+                    </menus>
+                </MenuBar>
+                
+                <!-- Module selection buttons moved to the top -->
+                <VBox alignment="CENTER" spacing="10.0" styleClass="module-buttons-container">
+                    <padding>
+                        <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                    </padding>
+                    <children>
+                        <Label styleClass="title-label" text="Sistema de Gestión de Inventario">
+                            <font>
+                                <Font name="System Bold" size="24.0" />
+                            </font>
+                        </Label>
+                        <HBox alignment="CENTER" spacing="30.0">
+                            <children>
+                                <Button onAction="#handleInventory" styleClass="menu-button" text="Inventario" />
+                                <Button onAction="#handlePOS" styleClass="menu-button" text="Ventas" />
+                                <Button onAction="#handlePurchaseOrders" styleClass="menu-button" text="Compras" />
+                                <Button onAction="#handleExpenses" styleClass="menu-button" text="Gastos" />
+                                <Button onAction="#handleFinancialReports" styleClass="menu-button" text="Reportes" />
+                                <Button onAction="#handleSettings" styleClass="menu-button" text="Configuración" />
+                                <Button onAction="#handleEmployees" styleClass="menu-button" text="Empleados" />
+                                <Button onAction="#handleAbout" styleClass="menu-button" text="Ayuda" />
+                                <Button onAction="#handleFinancyReports" styleClass="menu-button" text="Reportes Financieros"/>
+                            </children>
+                        </HBox>
+                    </children>
+                </VBox>
+            </children>
         </VBox>
     </top>
+    
     <center>
+        <!-- Dedicated StackPane for module content injection -->
         <StackPane fx:id="contentPane" styleClass="content-pane">
-            <!-- Content will be loaded here dynamically -->
+            <!-- Initially empty - will be filled by loadModule method -->
+            <padding>
+                <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+            </padding>
         </StackPane>
     </center>
+    
     <bottom>
-        <HBox alignment="CENTER_RIGHT" prefWidth="666.0" style="-fx-padding: 5;" styleClass="status-bar">
+        <HBox alignment="CENTER_RIGHT" prefWidth="666.0" styleClass="status-bar">
             <padding>
                 <Insets bottom="5" left="10" right="10" top="5" />
             </padding>

@@ -106,6 +106,8 @@ INSERT INTO accounts (id, account_code, name, account_type, description) VALUES
 (29, '1540', 'Inventory - Work in Progress', 'ASSET', 'Inventory of partially completed products');
 
 -- Payment Methods Accounts (ID 30-39)
+BEGIN TRANSACTION;
+
 INSERT INTO accounts (id, account_code, name, account_type, description) VALUES
 (30, '1550', 'Cash Payment Method', 'ASSET', 'Cash payment method account'),
 (31, '1560', 'Credit Card Payment Method', 'ASSET', 'Credit card payment method account'),
@@ -117,6 +119,8 @@ INSERT INTO accounts (id, account_code, name, account_type, description) VALUES
 (37, '1620', 'Gift Card Payment Method', 'ASSET', 'Gift card payment method account'),
 (38, '1630', 'Store Credit Payment Method', 'ASSET', 'Store credit payment method account'),
 (39, '1640', 'Loyalty Points Payment Method', 'ASSET', 'Loyalty points payment method account');
+
+COMMIT;
 
 -- Liability Accounts (ID 40-59)
 INSERT INTO accounts (id, account_code, name, account_type, description) VALUES

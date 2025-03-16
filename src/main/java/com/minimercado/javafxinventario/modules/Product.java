@@ -1,6 +1,8 @@
 package com.minimercado.javafxinventario.modules;
 
 import java.util.Date;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Represents a product in the inventory
@@ -25,6 +27,7 @@ public class Product {
     private Date lastPurchaseDate;
     private boolean active;
     private int pendingOrderQuantity;
+    private List<ProductSupplier> suppliers = new ArrayList<>();
     
     // Default constructor
     public Product() {
@@ -148,7 +151,8 @@ public class Product {
     }
     
     public String getSupplier() {
-        return supplier;
+        ProductSupplier primarySupplier = getPrimarySupplier();
+        return primarySupplier != null ? primarySupplier.getSupplierName() : supplier;
     }
     
     public void setSupplier(String supplier) {
@@ -209,6 +213,25 @@ public class Product {
     
     public void setPendingOrderQuantity(int pendingOrderQuantity) {
         this.pendingOrderQuantity = pendingOrderQuantity;
+    }
+    
+    public List<ProductSupplier> getSuppliers() {
+        return suppliers;
+    }
+
+    public void setSuppliers(List<ProductSupplier> suppliers) {
+        this.suppliers = suppliers;
+    }
+
+    public void addSupplier(ProductSupplier supplier) {
+        this.suppliers.add(supplier);
+    }
+
+    public ProductSupplier getPrimarySupplier() {
+        return suppliers.stream()
+                .filter(ProductSupplier::isPrimary)
+                .findFirst()
+                .orElse(suppliers.isEmpty() ? null : suppliers.get(0));
     }
     
     // Business methods

@@ -49,6 +49,20 @@ CREATE TABLE sales (
     notes TEXT
 );
 
+-- Create sales_items table to track items in each sale
+CREATE TABLE sales_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sale_id INT NOT NULL,
+    product_id VARCHAR(50) NOT NULL,
+    quantity INT NOT NULL,
+    price_per_unit DECIMAL(10, 2) NOT NULL,
+    discount DECIMAL(10, 2) DEFAULT 0.00,
+    total_price DECIMAL(10, 2) NOT NULL,
+    FOREIGN KEY (sale_id) REFERENCES sales(id),
+    INDEX (sale_id),
+    INDEX (product_id)
+);
+
 -- Create suppliers table
 CREATE TABLE suppliers (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -197,4 +211,3 @@ DELIMITER ;
 -- =============================================
 -- END OF SCRIPT
 -- =============================================
-```

@@ -12,6 +12,8 @@ public class Transaction {
     private LocalDateTime timestamp;
     private boolean reversed;
     private String reversalReason;
+    private String paymentMethod;
+    private String additionalInfo;
     
     public Transaction(String type, double amount, String description) {
         this.id = UUID.randomUUID().toString();
@@ -44,6 +46,10 @@ public class Transaction {
     public void setReversed(boolean reversed) { this.reversed = reversed; }
     public String getReversalReason() { return reversalReason; }
     public void setReversalReason(String reversalReason) { this.reversalReason = reversalReason; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+    public String getAdditionalInfo() { return additionalInfo; }
+    public void setAdditionalInfo(String additionalInfo) { this.additionalInfo = additionalInfo; }
     
     /**
      * Sets the ID of this transaction.
@@ -55,15 +61,51 @@ public class Transaction {
         this.id = id;
     }
 
+    /**
+     * Calcula el monto total incluyendo impuestos
+     * @return El monto total con impuestos
+     */
+    public double getTotalAmount() {
+        return amount + taxAmount;
+    }
+
+    /**
+     * Verifica si esta transacción es del tipo especificado
+     * @param typeToCheck El tipo a verificar
+     * @return true si coincide, false en caso contrario
+     */
+    public boolean isOfType(String typeToCheck) {
+        return type != null && type.equalsIgnoreCase(typeToCheck);
+    }
+
+    /**
+     * Crea una copia de esta transacción
+     * @return Una nueva instancia de Transaction con los mismos valores
+     */
+    public Transaction copy() {
+        Transaction copy = new Transaction(type, amount, description, timestamp);
+        copy.id = this.id;
+        copy.taxAmount = this.taxAmount;
+        copy.reversed = this.reversed;
+        copy.reversalReason = this.reversalReason;
+        copy.paymentMethod = this.paymentMethod;
+        copy.additionalInfo = this.additionalInfo;
+        return copy;
+    }
+
     @Override
     public String toString() {
         return "Transaction{" +
             "id='" + id + '\'' +
             ", type='" + type + '\'' +
             ", amount=" + amount +
+            ", taxAmount=" + taxAmount +
             ", description='" + description + '\'' +
             ", timestamp=" + timestamp +
             ", reversed=" + reversed +
+            (reversed ? ", reversalReason='" + reversalReason + '\'' : "") +
+            ", paymentMethod='" + paymentMethod + '\'' +
+            ", additionalInfo='" + additionalInfo + '\'' +
             '}';
     }
 

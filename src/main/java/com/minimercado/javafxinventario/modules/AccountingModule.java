@@ -17,6 +17,7 @@ public class AccountingModule {
     private List<String> auditLog;
     private static AccountingModule instance;
     private AccountingDAO accountingDAO; // Add DAO reference
+    private List<FinancialUpdateListener> updateListeners = new ArrayList<>(); // Add listener mechanism
     
     // Singleton pattern para acceso global
     public static synchronized AccountingModule getInstance() {
@@ -33,31 +34,60 @@ public class AccountingModule {
         accountingDAO = new AccountingDAO(); // Initialize the DAO
     }
     
-    public void recordTransaction(Transaction tx) {
-        tx.setTimestamp(LocalDateTime.now());
-        transactions.add(tx);
-        
-        // Aplicar impuestos si es una venta
-        if ("venta".equalsIgnoreCase(tx.getType())) {
-            double tax = tx.getAmount() * 0.12;
-            tx.setTaxAmount(tax);
+    /**
+     * Records a transaction in the accounting system
+     * @param transaction The transaction to record
+     * @return true if the transaction was successfully recorded
+     */
+    public boolean recordTransaction(Transaction transaction) {
+        try {
+            // Set the timestamp if not already set
+            if (transaction.getTimestamp() == null) {
+                transaction.setTimestamp(LocalDateTime.now());
+            }
             
-            // Registrar en el log de auditoría
-            addAuditEntry("Venta registrada: " + tx.getAmount() + " - Impuesto: " + tax + " - " + tx.getDescription());
-        } else if ("egreso".equalsIgnoreCase(tx.getType()) || "gasto".equalsIgnoreCase(tx.getType())) {
-            addAuditEntry("Egreso registrado: " + tx.getAmount() + " - " + tx.getDescription());
-        }
-        
-        // Notificar al balance report
-        balanceReport.updateBalance(tx);
-        
-        // Save transaction to database
-        boolean savedToDb = accountingDAO.recordTransaction(tx);
-        if (!savedToDb) {
-            addAuditEntry("ERROR: No se pudo guardar la transacción en la base de datos: " + tx.getId());
-            System.err.println("Error saving transaction to database: " + tx.getId());
-        } else {
-            addAuditEntry("Transacción guardada en la base de datos: " + tx.getId());
+            // Add to in-memory transactions list
+            transactions.add(transaction);
+            
+            // Apply taxes if it's a sale
+            if ("venta".equalsIgnoreCase(transaction.getType())) {
+                double tax = transaction.getAmount() * 0.12;
+                transaction.setTaxAmount(tax);
+                
+                // Register in audit log
+                addAuditEntry("Venta registrada: " + transaction.getAmount() + 
+                             " - Impuesto: " + tax + " - " + transaction.getDescription());
+            } else if ("egreso".equalsIgnoreCase(transaction.getType()) || 
+                       "gasto".equalsIgnoreCase(transaction.getType()) ||
+                       "compra".equalsIgnoreCase(transaction.getType())) {
+                addAuditEntry(transaction.getType() + " registrado: " + 
+                             transaction.getAmount() + " - " + transaction.getDescription());
+            }
+            
+            // Add the transaction to the database
+            // Use recordTransaction instead of addTransaction
+            boolean success = accountingDAO.recordTransaction(transaction);
+            
+            if (success) {
+                // Update balance report
+                balanceReport.updateBalance(transaction);
+                
+                // Add audit entry for database save
+                addAuditEntry("Transacción guardada en la base de datos: " + transaction.getId());
+                
+                // Notify any registered listeners about the update
+                notifyFinancialDataUpdated();
+                
+                return true;
+            } else {
+                addAuditEntry("ERROR: No se pudo guardar la transacción en la base de datos: " + transaction.getId());
+                System.err.println("Error saving transaction to database: " + transaction.getId());
+                return false;
+            }
+        } catch (Exception e) {
+            System.err.println("Error recording transaction: " + e.getMessage());
+            e.printStackTrace();
+            return false;
         }
     }
     
@@ -100,7 +130,7 @@ public class AccountingModule {
         return true;
     }
     
-    private double calculateTotalByType(String type) {
+    public double calculateTotalByType(String type) {
         return transactions.stream()
             .filter(tx -> tx.getType().equalsIgnoreCase(type))
             .mapToDouble(Transaction::getAmount)
@@ -117,8 +147,13 @@ public class AccountingModule {
     
     public String generateFinancialReport() {
         double totalSales = calculateTotalByType("venta");
+        
+        // Include all expense types in total purchases and expenses calculations
         double totalPurchases = calculateTotalByType("compra");
-        double totalExpenses = calculateTotalByType("gasto");
+        
+        // Combine all expense types (egreso, gasto)
+        double totalExpenses = calculateTotalByType("gasto") + calculateTotalByType("egreso");
+        
         double grossProfit = totalSales - totalPurchases;
         double netProfit = grossProfit - totalExpenses;
         
@@ -248,8 +283,12 @@ public class AccountingModule {
         return sb.toString();
     }
     
-    // Método para conciliar transacciones con otro registro
+    // Método para conciliar transacciones con otro registro con mejor validación
     public List<Transaction> reconcileTransactions(List<Transaction> externalTransactions) {
+        if (externalTransactions == null || externalTransactions.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
         List<Transaction> discrepancies = new ArrayList<>();
         
         for (Transaction externalTx : externalTransactions) {
@@ -280,14 +319,62 @@ public class AccountingModule {
      * @return true if the transaction already exists, false otherwise
      */
     public boolean transactionExists(Transaction transaction) {
+        if (transaction == null) {
+            return false;
+        }
+        
         // Verify by comparing fields since id might be different
         return transactions.stream().anyMatch(tx -> 
             tx.getTimestamp() != null && 
             transaction.getTimestamp() != null && 
             Math.abs(tx.getAmount() - transaction.getAmount()) < 0.001 &&
+            tx.getType() != null &&
+            transaction.getType() != null &&
             tx.getType().equals(transaction.getType()) &&
-            (tx.getDescription().equals(transaction.getDescription()) || 
-             tx.getId().equals(transaction.getId()))
+            ((tx.getDescription() != null && 
+              transaction.getDescription() != null && 
+              tx.getDescription().equals(transaction.getDescription())) || 
+             (tx.getId() != null && 
+              transaction.getId() != null && 
+              tx.getId().equals(transaction.getId())))
         );
+    }
+
+    /**
+     * Get or create the current balance report
+     * @return The current balance report
+     */
+    private BalanceReport getOrCreateCurrentReport() {
+        if (balanceReport == null) {
+            balanceReport = new BalanceReport();
+        }
+        return balanceReport;
+    }
+    
+    /**
+     * Add a listener to be notified when financial data changes
+     * @param listener The listener to add
+     */
+    public void addFinancialUpdateListener(FinancialUpdateListener listener) {
+        if (!updateListeners.contains(listener)) {
+            updateListeners.add(listener);
+        }
+    }
+
+    /**
+     * Remove a financial update listener
+     * @param listener The listener to remove
+     */
+    public void removeFinancialUpdateListener(FinancialUpdateListener listener) {
+        updateListeners.remove(listener);
+    }
+
+    /**
+     * Notify all registered listeners that financial data has been updated
+     */
+    private void notifyFinancialDataUpdated() {
+        for (FinancialUpdateListener listener : updateListeners) {
+            listener.onFinancialDataUpdated();
+        }
     }
 }

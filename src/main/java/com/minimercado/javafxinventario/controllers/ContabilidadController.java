@@ -188,10 +188,15 @@ public class ContabilidadController {
                     .filter(tx -> "venta".equalsIgnoreCase(tx.getType()))
                     .mapToDouble(Transaction::getAmount)
                     .sum();
+                    
+            // Include ALL expense types (egreso, gasto, compra)
             double costos = accountingModule.getTransactions().stream()
-                    .filter(tx -> "egreso".equalsIgnoreCase(tx.getType()))
-                    .mapToDouble(Transaction::getAmount)
+                    .filter(tx -> "egreso".equalsIgnoreCase(tx.getType()) || 
+                                  "gasto".equalsIgnoreCase(tx.getType()) || 
+                                  "compra".equalsIgnoreCase(tx.getType()))
+                    .mapToDouble(tx -> Math.abs(tx.getAmount())) // Ensure positive value for display
                     .sum();
+                    
             double margen = totalVentas - costos;
             lblTotalVentas.setText(String.format("%.2f", totalVentas));
             lblCostosOperativos.setText(String.format("%.2f", costos));

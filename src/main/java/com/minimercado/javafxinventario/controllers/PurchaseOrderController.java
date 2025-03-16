@@ -8,6 +8,7 @@ import javafx.application.Platform;  // Added missing import for Platform
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -15,9 +16,11 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.util.StringConverter;
 
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -59,6 +62,10 @@ public class PurchaseOrderController {
     private final ObservableList<PurchaseOrder> ordersList = FXCollections.observableArrayList();
     private ObservableList<Product> products = FXCollections.observableArrayList();
     
+    // Add a new field to track if we're showing mock data
+    private boolean showingMockData = false;
+    private Button mockDataButton;
+
     @FXML
     public void initialize() {
         // Initialize current order
@@ -85,6 +92,12 @@ public class PurchaseOrderController {
         statusFilterComboBox.valueProperty().addListener((obs, oldValue, newValue) -> {
             loadOrders();
         });
+        
+        // Add mock data button
+        mockDataButton = new Button("Usar datos de ejemplo");
+        mockDataButton.setOnAction(e -> toggleMockData());
+        mockDataButton.setStyle("-fx-background-color: #e0e0e0;");
+        // Add to your layout - you'll need to add this to your FXML or add it programmatically
         
         // Load orders
         loadOrders();
@@ -191,7 +204,8 @@ public class PurchaseOrderController {
         actionColumn.setCellFactory(param -> new TableCell<>() {
             private final Button viewButton = new Button("View");
             private final Button receiveButton = new Button("Receive");
-            private final HBox pane = new HBox(5, viewButton, receiveButton);
+            private final Button deleteButton = new Button("Delete"); // New delete button
+            private final HBox pane = new HBox(5, viewButton, receiveButton, deleteButton); // Added delete button to HBox
             
             {
                 viewButton.setOnAction(event -> {
@@ -203,6 +217,13 @@ public class PurchaseOrderController {
                     PurchaseOrder order = getTableView().getItems().get(getIndex());
                     receiveOrder(order);
                 });
+                
+                // Configure delete button with red styling
+                deleteButton.setOnAction(event -> {
+                    PurchaseOrder order = getTableView().getItems().get(getIndex());
+                    deleteOrder(order);
+                });
+                deleteButton.setStyle("-fx-background-color: #ff4d4d;"); // Red color for delete button
                 
                 receiveButton.setStyle("-fx-background-color: #66cc66;");
             }
@@ -216,6 +237,10 @@ public class PurchaseOrderController {
                     PurchaseOrder order = getTableView().getItems().get(getIndex());
                     // Only allow receiving orders that are in ORDERED status
                     receiveButton.setDisable(!"ORDERED".equals(order.getStatus()));
+                    
+                    // Only allow deleting orders that are not RECEIVED
+                    deleteButton.setDisable("RECEIVED".equals(order.getStatus()));
+                    
                     setGraphic(pane);
                 }
             }
@@ -223,6 +248,45 @@ public class PurchaseOrderController {
         
         ordersTable.getColumns().add(actionColumn);
         ordersTable.setItems(ordersList);
+    }
+    
+    /**
+     * Deletes a purchase order after confirmation
+     */
+    private void deleteOrder(PurchaseOrder order) {
+        // Show confirmation dialog
+        Alert confirmDialog = new Alert(Alert.AlertType.CONFIRMATION);
+        confirmDialog.setTitle("Confirmar Eliminación");
+        confirmDialog.setHeaderText("¿Está seguro que desea eliminar esta orden de compra?");
+        confirmDialog.setContentText(String.format(
+            "Orden #%d para %s con un total de $%.2f\nStatus: %s", 
+            order.getId(), order.getSupplierName(), order.getTotalAmount(), order.getStatus())
+        );
+        
+        Optional<ButtonType> result = confirmDialog.showAndWait();
+        
+        if (result.isPresent() && result.get() == ButtonType.OK) {
+            // User confirmed deletion, proceed with delete
+            boolean success = inventoryDAO.deletePurchaseOrder(order.getId());
+            
+            if (success) {
+                // Remove from the observable list
+                ordersList.remove(order);
+                
+                // Show success message
+                showAlert(Alert.AlertType.INFORMATION, "Orden Eliminada", 
+                          "Orden de compra eliminada", 
+                          "La orden de compra ha sido eliminada exitosamente.");
+                
+                // Refresh the table
+                ordersTable.refresh();
+            } else {
+                // Show error message
+                showAlert(Alert.AlertType.ERROR, "Error", 
+                          "Error al eliminar la orden", 
+                          "No se pudo eliminar la orden de compra. Por favor intente nuevamente.");
+            }
+        }
     }
     
     /**
@@ -260,18 +324,104 @@ public class PurchaseOrderController {
      * Loads purchase orders from the database
      */
     private void loadOrders() {
-        // In a real implementation, this would filter by the selected status
-        // For now, we'll just load all orders (mock implementation)
-        // ordersList.setAll(inventoryDAO.getAllPurchaseOrders(statusFilterComboBox.getValue()));
+        // Skip database loading if we're in mock data mode
+        if (showingMockData) {
+            return;
+        }
         
-        // Mock data for now
-        if (ordersList.isEmpty()) {
-            PurchaseOrder mockOrder = new PurchaseOrder(1, "Distribuidora Láctea");
-            mockOrder.setId(1);
-            mockOrder.setStatus("ORDERED");
-            mockOrder.setOrderDate(new Date());
-            mockOrder.addItem("123456789", 10, 80.0);
-            ordersList.add(mockOrder);
+        try {
+            // Clear any existing orders first
+            ordersList.clear();
+            
+            // Get the selected status filter value
+            String statusFilter = statusFilterComboBox.getValue();
+            
+            // Use the DAO to get orders from database
+            List<PurchaseOrder> orders;
+
+            if ("Todos".equals(statusFilter)) {
+                // Get all orders regardless of status
+                orders = inventoryDAO.getAllPurchaseOrders();
+            } else {
+                // Filter by selected status
+                orders = inventoryDAO.getPurchaseOrdersByStatus(statusFilter);
+            }
+
+            // Add orders to the observable list
+            if (orders != null) {
+                ordersList.addAll(orders);
+            }
+
+            // Show appropriate status message
+            if (ordersList.isEmpty()) {
+                statusLabel.setText("No se encontraron órdenes de compra en la base de datos");
+            } else {
+                statusLabel.setText("Se cargaron " + ordersList.size() + " órdenes de compra");
+            }
+
+            // Make sure the table refreshes its view
+            ordersTable.refresh();
+            
+            // Update any status information
+            updateOrderSummary();
+            
+        } catch (Exception e) {
+            System.err.println("Error loading orders: " + e.getMessage());
+            e.printStackTrace();
+            statusLabel.setText("Error cargando órdenes: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Creates mock order data for demonstration purposes
+     */
+    private void createMockOrders() {
+        // Clear existing mock orders to avoid duplicates
+        ordersList.clear();
+        
+        // Add a pending order
+        PurchaseOrder pendingOrder = new PurchaseOrder(1, "Distribuidora Láctea");
+        pendingOrder.setId(1);
+        pendingOrder.setStatus("PENDING");
+        pendingOrder.setOrderDate(new Date());
+        pendingOrder.addItem("123456789", 10, 80.0);
+        ordersList.add(pendingOrder);
+        
+        // Add an ordered order
+        PurchaseOrder orderedOrder = new PurchaseOrder(2, "Proveedor General");
+        orderedOrder.setId(2);
+        orderedOrder.setStatus("ORDERED");
+        orderedOrder.setOrderDate(new Date());
+        orderedOrder.addItem("987654321", 5, 120.0);
+        ordersList.add(orderedOrder);
+        
+        // Add a received order with date from a week ago
+        PurchaseOrder receivedOrder = new PurchaseOrder(3, "Importadora ABC");
+        receivedOrder.setId(3);
+        receivedOrder.setStatus("RECEIVED");
+        
+        // Set date to a week ago
+        Calendar cal = Calendar.getInstance();
+        cal.add(Calendar.DAY_OF_MONTH, -7);
+        receivedOrder.setOrderDate(cal.getTime());
+        
+        receivedOrder.addItem("456789123", 20, 45.0);
+        ordersList.add(receivedOrder);
+    }
+    
+    /**
+     * Updates the order summary information (could display counts or totals)
+     */
+    private void updateOrderSummary() {
+        // Example: Update a status label with order counts by status
+        long pendingCount = ordersList.stream().filter(o -> "PENDING".equals(o.getStatus())).count();
+        long orderedCount = ordersList.stream().filter(o -> "ORDERED".equals(o.getStatus())).count();
+        long receivedCount = ordersList.stream().filter(o -> "RECEIVED".equals(o.getStatus())).count();
+        
+        // If you have a status display label, you can update it
+        if (statusLabel != null) {
+            statusLabel.setText(String.format("Pedidos: %d pendientes, %d ordenados, %d recibidos", 
+                                             pendingCount, orderedCount, receivedCount));
         }
     }
     
@@ -303,6 +453,13 @@ public class PurchaseOrderController {
      */
     @FXML
     private void handleAddItem() {
+        // Validate that a supplier has been selected first
+        if (supplierComboBox.getValue() == null) {
+            showAlert(Alert.AlertType.ERROR, "Error", "No supplier selected", 
+                     "Please select a supplier before adding items to the order.");
+            return;
+        }
+        
         Dialog<PurchaseOrder.Item> dialog = new Dialog<>();
         dialog.setTitle("Add Item");
         dialog.setHeaderText("Add product to order");
@@ -364,21 +521,48 @@ public class PurchaseOrderController {
                         return null;
                     }
                     
-                    int quantity = Integer.parseInt(quantityField.getText());
+                    // Debug output
+                    System.out.println("Quantity text: [" + quantityField.getText() + "]");
+                    System.out.println("Price text: [" + priceField.getText() + "]");
+                    
+                    // Normalize input - replace comma with period for decimal separator
+                    String normalizedQuantity = quantityField.getText().trim().replace(",", ".");
+                    String normalizedPrice = priceField.getText().trim().replace(",", ".");
+                    
+                    // Parse with error handling
+                    int quantity;
+                    try {
+                        quantity = Integer.parseInt(normalizedQuantity);
+                    } catch (NumberFormatException e) {
+                        showAlert(Alert.AlertType.ERROR, "Error", "Invalid quantity", 
+                            "Please enter a valid integer for quantity: " + e.getMessage());
+                        return null;
+                    }
+                    
                     if (quantity <= 0) {
                         showAlert(Alert.AlertType.ERROR, "Error", "Invalid quantity", "Quantity must be greater than zero.");
                         return null;
                     }
                     
-                    double price = Double.parseDouble(priceField.getText());
+                    double price;
+                    try {
+                        price = Double.parseDouble(normalizedPrice);
+                    } catch (NumberFormatException e) {
+                        showAlert(Alert.AlertType.ERROR, "Error", "Invalid price", 
+                            "Please enter a valid number for price: " + e.getMessage());
+                        return null;
+                    }
+                    
                     if (price < 0) {
                         showAlert(Alert.AlertType.ERROR, "Error", "Invalid price", "Price cannot be negative.");
                         return null;
                     }
                     
                     return new PurchaseOrder.Item(selectedProduct.getBarcode(), quantity, price);
-                } catch (NumberFormatException e) {
-                    showAlert(Alert.AlertType.ERROR, "Error", "Invalid input", "Please enter valid numbers for quantity and price.");
+                } catch (Exception e) {
+                    showAlert(Alert.AlertType.ERROR, "Error", "Unexpected error", 
+                        "An unexpected error occurred: " + e.getMessage());
+                    e.printStackTrace();
                     return null;
                 }
             }
@@ -425,7 +609,17 @@ public class PurchaseOrderController {
         
         if (success) {
             showAlert(Alert.AlertType.INFORMATION, "Success", "Order Created", "Purchase order has been created successfully.");
+            
+            // Make sure the new order appears in the orders list
+            // Option 1: Add directly to the ordersList if we have the complete order
+            if (currentOrder.getId() > 0) {  // If the DAO assigned an ID
+                ordersList.add(currentOrder);
+                ordersTable.refresh();
+            }
+            
+            // Option 2: Or reload all orders to ensure everything is up to date
             loadOrders();
+            
             handleNewOrder(); // Clear the form for a new order
         } else {
             showAlert(Alert.AlertType.ERROR, "Error", "Order Creation Failed", "Could not create purchase order. Please try again.");
@@ -524,7 +718,12 @@ public class PurchaseOrderController {
             
             if (success) {
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Order Received", "Purchase order has been received successfully.");
-                // Update the order status in the list
+                
+                // Update the order in the TableView immediately
+                order.setStatus("RECEIVED");
+                ordersTable.refresh();
+                
+                // Then reload all orders to ensure data consistency
                 loadOrders();
             } else {
                 showAlert(Alert.AlertType.ERROR, "Error", "Receiving Failed", "Could not process the order reception. Please try again.");
@@ -561,6 +760,71 @@ public class PurchaseOrderController {
         Optional<ButtonType> result = alert.showAndWait();
         if (result.isPresent() && result.get() == ButtonType.OK) {
             handleNewOrder();
+        }
+    }
+
+    /**
+     * Toggles between real database data and mock data
+     */
+    private void toggleMockData() {
+        showingMockData = !showingMockData;
+        if (showingMockData) {
+            // Show mock data
+            createMockOrders();
+            mockDataButton.setText("Usar datos reales");
+            mockDataButton.setStyle("-fx-background-color: #ffcc80;"); // Orange warning color
+            statusLabel.setText("Mostrando datos de ejemplo (no conectado a base de datos)");
+        } else {
+            // Show real data
+            loadOrders();
+            mockDataButton.setText("Usar datos de ejemplo");
+            mockDataButton.setStyle("-fx-background-color: #e0e0e0;");
+        }
+    }
+
+    // Add a refresh method to easily reload data from database
+    @FXML
+    private void handleRefreshOrders() {
+        // Reset to real data mode
+        showingMockData = false;
+        mockDataButton.setText("Usar datos de ejemplo");
+        mockDataButton.setStyle("-fx-background-color: #e0e0e0;");
+        
+        // Clear and reload
+        ordersList.clear();
+        loadOrders();
+    }
+
+    /**
+     * Recibe una orden de compra y registra el pago.
+     * @param order Orden a recibir
+     */
+
+    
+    /**
+     * Muestra el diálogo para registrar el pago de una orden.
+     * @param order Orden a pagar
+     */
+    private void showPaymentDialog(PurchaseOrder order) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/purchase-payment-dialog.fxml"));
+            DialogPane dialogPane = loader.load();
+            
+            PurchaseOrderPaymentController controller = loader.getController();
+            controller.initData(order);
+            
+            Dialog<ButtonType> dialog = new Dialog<>();
+            dialog.setDialogPane(dialogPane);
+            dialog.setTitle("Registrar Pago - Orden #" + order.getId());
+            
+            // Mostrar el diálogo y esperar respuesta
+            dialog.showAndWait();
+            
+            // Después del pago, refrescar la lista de órdenes
+            handleRefreshOrders();
+            
+        } catch (IOException e) {
+            showAlert(Alert.AlertType.ERROR, "Error", "Error al abrir formulario de pago", e.getMessage());
         }
     }
 }

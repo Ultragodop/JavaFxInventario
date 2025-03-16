@@ -1,0 +1,11 @@
+<!-- ...existing code... -->
+                    <Menu mnemonicParsing="false" text="Finanzas">
+                        <items>
+                            <MenuItem mnemonicParsing="false" text="Gastos" onAction="#handleOpenExpenses" />
+                            <MenuItem mnemonicParsing="false" text="Categorías de Gastos" onAction="#handleOpenExpenseCategories" />
+                            <MenuItem mnemonicParsing="false" text="Empleados" onAction="#handleOpenEmployees" />
+                            <SeparatorMenuItem mnemonicParsing="false" />
+                            <MenuItem mnemonicParsing="false" text="Reportes Financieros" onAction="#handleFinancialReports" />
+                        </items>
+                    </Menu>
+<!-- ...existing code... -->

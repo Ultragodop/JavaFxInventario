@@ -1,0 +1,34 @@
+.summary-card {
+    -fx-background-color: white;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 10, 0, 0, 5);
+    -fx-background-radius: 5;
+    -fx-padding: 15;
+}
+
+.income-label {
+    -fx-text-fill: #28a745;
+}
+
+.expense-label {
+    -fx-text-fill: #dc3545;
+}
+
+.profit-label {
+    -fx-text-fill: #0d6efd;
+}
+
+.trend-label {
+    -fx-font-size: 12px;
+}
+
+.report-text-area {
+    -fx-font-family: 'Courier New';
+}
+
+.chart-series-line {
+    -fx-stroke-width: 2px;
+}
+
+.chart-pie-label {
+    -fx-fill: #333333;
+}

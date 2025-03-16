@@ -1,5 +1,6 @@
 package com.minimercado.javafxinventario.modules;
 
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -175,7 +176,11 @@ public class PurchaseOrder {
         this.items = items;
         calculateTotal();
     }
-    
+
+    public void setReceiveDate(Timestamp receiveDate) {
+        this.receivedDate = receiveDate;
+    }
+
     /**
      * Inner class representing an item in a purchase order
      */

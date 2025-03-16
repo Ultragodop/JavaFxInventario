@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.chart.BarChart?>
+<?import javafx.scene.chart.CategoryAxis?>
+<?import javafx.scene.chart.NumberAxis?>
+<?import javafx.scene.chart.PieChart?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="800.0" prefWidth="1000.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.minimercado.javafxinventario.controllers.CategoryReportController">
+   <top>
+      <VBox spacing="10.0" BorderPane.alignment="CENTER">
+         <children>
+            <Label text="Reporte de Categorías" textAlignment="CENTER">
+               <font>
+                  <Font name="System Bold" size="20.0" />
+               </font>
+            </Label>
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
+               <children>
+                  <Label text="Filtrar por:" />
+                  <ComboBox fx:id="filterTypeComboBox" prefWidth="150.0" promptText="Seleccionar filtro" />
+                  <TextField fx:id="filterField" promptText="Buscar..." HBox.hgrow="ALWAYS" />
+                  <Button fx:id="applyFilterButton" onAction="#handleApplySelectedFilter" text="Aplicar Filtro" styleClass="action-button" />
+                  <Button fx:id="searchButton" mnemonicParsing="false" onAction="#handleSearch" text="Buscar" />
+                  <Button fx:id="clearButton" mnemonicParsing="false" onAction="#handleClear" text="Limpiar" />
+               </children>
+            </HBox>
+         </children>
+         <padding>
+            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+         </padding>
+      </VBox>
+   </top>
+   <center>
+      <VBox spacing="10.0" BorderPane.alignment="CENTER">
+         <children>
+            <TableView fx:id="categoryTable" prefHeight="300.0" prefWidth="200.0" VBox.vgrow="ALWAYS">
+              <columns>
+                <TableColumn fx:id="idColumn" prefWidth="75.0" text="ID" />
+                <TableColumn fx:id="nameColumn" prefWidth="200.0" text="Nombre" />
+                <TableColumn fx:id="descriptionColumn" prefWidth="300.0" text="Descripción" />
+                <TableColumn fx:id="productCountColumn" prefWidth="100.0" text="# Productos" />
+                <TableColumn fx:id="createdAtColumn" prefWidth="100.0" text="Fecha Creación" />
+              </columns>
+            </TableView>
+            <HBox spacing="10.0" VBox.vgrow="ALWAYS">
+               <children>
+                  <PieChart fx:id="categoryValueChart" title="Valor de Inventario por Categoría" HBox.hgrow="ALWAYS" />
+                  <BarChart fx:id="categoryComparisonChart" title="Comparación de Categorías" HBox.hgrow="ALWAYS">
+                     <xAxis>
+                        <CategoryAxis side="BOTTOM" />
+                     </xAxis>
+                     <yAxis>
+                        <NumberAxis side="LEFT" />
+                     </yAxis>
+                  </BarChart>
+               </children>
+            </HBox>
+         </children>
+         <padding>
+            <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+         </padding>
+      </VBox>
+   </center>
+   <bottom>
+      <VBox spacing="10.0" BorderPane.alignment="CENTER">
+         <children>
+            <HBox spacing="20.0" alignment="CENTER_LEFT">
+               <children>
+                  <Label text="Resumen:">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                  </Label>
+                  <Label fx:id="totalCategoriesLabel" text="Total Categorías: 0" />
+                  <Label fx:id="totalProductsLabel" text="Total Productos: 0" />
+                  <Label fx:id="totalInventoryValueLabel" text="Valor Total: $0.00" />
+               </children>
+               <padding>
+                  <Insets left="10.0" />
+               </padding>
+            </HBox>
+            <HBox alignment="CENTER_RIGHT" spacing="10.0">
+               <children>
+                  <Label fx:id="statusLabel" text="" HBox.hgrow="ALWAYS" />
+                  <Button fx:id="exportButton" mnemonicParsing="false" onAction="#handleExport" text="Exportar" />
+                  <Button fx:id="printButton" mnemonicParsing="false" onAction="#handlePrint" text="Imprimir" />
+                  <Button fx:id="closeButton" mnemonicParsing="false" onAction="#handleClose" text="Cerrar" />
+               </children>
+               <padding>
+                  <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+               </padding>
+            </HBox>
+         </children>
+      </VBox>
+   </bottom>
+</BorderPane>

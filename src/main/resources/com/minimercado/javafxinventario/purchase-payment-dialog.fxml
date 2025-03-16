@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<DialogPane prefWidth="500.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" 
+           fx:controller="com.minimercado.javafxinventario.controllers.PurchaseOrderPaymentController">
+   <content>
+      <VBox spacing="15.0">
+         <padding>
+            <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+         </padding>
+         <children>
+            <GridPane hgap="10.0" vgap="5.0" styleClass="info-box">
+               <padding>
+                  <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+               </padding>
+               <columnConstraints>
+                  <ColumnConstraints hgrow="NEVER" minWidth="120.0" />
+                  <ColumnConstraints hgrow="ALWAYS" minWidth="10.0" prefWidth="100.0" />
+                  <ColumnConstraints hgrow="NEVER" minWidth="120.0" />
+                  <ColumnConstraints hgrow="ALWAYS" minWidth="10.0" prefWidth="100.0" />
+               </columnConstraints>
+               <rowConstraints>
+                  <RowConstraints minHeight="30.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                  <RowConstraints minHeight="30.0" prefHeight="30.0" vgrow="SOMETIMES" />
+               </rowConstraints>
+               <children>
+                  <Label text="Orden Nº:" styleClass="bold-label" />
+                  <Label fx:id="orderIdLabel" text="0000" GridPane.columnIndex="1" />
+                  <Label text="Proveedor:" styleClass="bold-label" GridPane.columnIndex="2" />
+                  <Label fx:id="supplierLabel" text="Nombre Proveedor" GridPane.columnIndex="3" />
+                  <Label text="Total Orden:" styleClass="bold-label" GridPane.rowIndex="1" />
+                  <Label fx:id="totalAmountLabel" text="0.00" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                  <Label text="Saldo Pendiente:" styleClass="bold-label" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+                  <Label fx:id="balanceLabel" text="0.00" GridPane.columnIndex="3" GridPane.rowIndex="1" />
+               </children>
+            </GridPane>
+            <Separator />
+            <GridPane hgap="10.0" vgap="10.0">
+               <columnConstraints>
+                  <ColumnConstraints hgrow="NEVER" minWidth="120.0" />
+                  <ColumnConstraints hgrow="ALWAYS" minWidth="200.0" />
+               </columnConstraints>
+               <rowConstraints>
+                  <RowConstraints minHeight="30.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                  <RowConstraints minHeight="30.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                  <RowConstraints minHeight="30.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                  <RowConstraints minHeight="30.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                  <RowConstraints minHeight="60.0" prefHeight="60.0" vgrow="SOMETIMES" />
+               </rowConstraints>
+               <children>
+                  <Label text="Fecha de Pago:" />
+                  <DatePicker fx:id="paymentDatePicker" GridPane.columnIndex="1" />
+                  <Label text="Monto:" GridPane.rowIndex="1" />
+                  <HBox alignment="CENTER_LEFT" spacing="5.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                     <children>
+                        <Label text="0.0" />
+                        <TextField fx:id="amountField" />
+                     </children>
+                  </HBox>
+                  <Label text="Método de Pago:" GridPane.rowIndex="2" />
+                  <ComboBox fx:id="paymentMethodCombo" prefWidth="200.0" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                  <Label text="Referencia:" GridPane.rowIndex="3" />
+                  <TextField fx:id="referenceField" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                  <Label text="Notas:" GridPane.rowIndex="4" />
+                  <TextArea fx:id="notesArea" prefHeight="60.0" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+                  <CheckBox fx:id="completePaymentCheckBox" text="Pago Completo" GridPane.columnIndex="1" GridPane.rowIndex="5" />
+               </children>
+            </GridPane>
+            <Label fx:id="statusLabel" textFill="RED" />
+         </children>
+      </VBox>
+   </content>
+   <buttonTypes>
+      <ButtonType fx:constant="OK" />
+      <ButtonType fx:constant="CANCEL" />
+   </buttonTypes>
+</DialogPane>
