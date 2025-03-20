@@ -4,6 +4,8 @@ import com.minimercado.javafxinventario.DAO.InventoryDAO;
 import com.minimercado.javafxinventario.modules.Product;
 import com.minimercado.javafxinventario.modules.PurchaseOrder;
 import com.minimercado.javafxinventario.modules.Supplier;
+import com.minimercado.javafxinventario.modules.AccountingModule;
+import com.minimercado.javafxinventario.modules.Transaction;
 import javafx.application.Platform;  // Added missing import for Platform
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -19,6 +21,7 @@ import javafx.util.StringConverter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Calendar;
 import java.util.Date;
@@ -65,6 +68,9 @@ public class PurchaseOrderController {
     // Add a new field to track if we're showing mock data
     private boolean showingMockData = false;
     private Button mockDataButton;
+
+    // Add reference to AccountingModule
+    private final AccountingModule accountingModule = AccountingModule.getInstance();
 
     @FXML
     public void initialize() {
@@ -199,33 +205,64 @@ public class PurchaseOrderController {
             return cell;
         });
         
+        // Format status column with colors
+        statusColumn.setCellFactory(column -> new TableCell<PurchaseOrder, String>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(item);
+                    switch (item) {
+                        case "RECEIVED":
+                            setStyle("-fx-text-fill: #28a745;"); // Green
+                            break;
+                        case "ORDERED":
+                            setStyle("-fx-text-fill: #007bff;"); // Blue
+                            break;
+                        case "PAID":
+                            setStyle("-fx-text-fill: #6f42c1;"); // Purple
+                            break;
+                        case "PARTIALLY_PAID":
+                            setStyle("-fx-text-fill: #fd7e14;"); // Orange
+                            break;
+                        case "CANCELED":
+                            setStyle("-fx-text-fill: #dc3545;"); // Red
+                            break;
+                        default:
+                            setStyle("");
+                    }
+                }
+            }
+        });
+        
         // Add action buttons to orders table
         TableColumn<PurchaseOrder, Void> actionColumn = new TableColumn<>("Actions");
         actionColumn.setCellFactory(param -> new TableCell<>() {
-            private final Button viewButton = new Button("View");
-            private final Button receiveButton = new Button("Receive");
-            private final Button deleteButton = new Button("Delete"); // New delete button
-            private final HBox pane = new HBox(5, viewButton, receiveButton, deleteButton); // Added delete button to HBox
+            private final HBox buttonBox = new HBox(5);
+            private final Button viewBtn = new Button("Ver");
+            private final Button receiveBtn = new Button("Recibir");
+            private final Button payBtn = new Button("Pagar");
             
             {
-                viewButton.setOnAction(event -> {
+                viewBtn.setOnAction(event -> {
                     PurchaseOrder order = getTableView().getItems().get(getIndex());
                     viewOrder(order);
                 });
                 
-                receiveButton.setOnAction(event -> {
+                receiveBtn.setOnAction(event -> {
                     PurchaseOrder order = getTableView().getItems().get(getIndex());
                     receiveOrder(order);
                 });
                 
-                // Configure delete button with red styling
-                deleteButton.setOnAction(event -> {
+                payBtn.setOnAction(event -> {
                     PurchaseOrder order = getTableView().getItems().get(getIndex());
-                    deleteOrder(order);
+                    showPaymentDialog(order);
                 });
-                deleteButton.setStyle("-fx-background-color: #ff4d4d;"); // Red color for delete button
                 
-                receiveButton.setStyle("-fx-background-color: #66cc66;");
+                buttonBox.getChildren().addAll(viewBtn, receiveBtn, payBtn);
             }
             
             @Override
@@ -235,13 +272,19 @@ public class PurchaseOrderController {
                     setGraphic(null);
                 } else {
                     PurchaseOrder order = getTableView().getItems().get(getIndex());
-                    // Only allow receiving orders that are in ORDERED status
-                    receiveButton.setDisable(!"ORDERED".equals(order.getStatus()));
                     
-                    // Only allow deleting orders that are not RECEIVED
-                    deleteButton.setDisable("RECEIVED".equals(order.getStatus()));
+                    // Habilitar/deshabilitar botones según el estado de la orden
+                    receiveBtn.setDisable(!"ORDERED".equals(order.getStatus()));
                     
-                    setGraphic(pane);
+                    // Solo mostrar el botón de pago para órdenes recibidas o con estado UNPAID/PARTIALLY_PAID
+                    boolean canPay = "RECEIVED".equals(order.getStatus()) || 
+                                    "PARTIALLY_PAID".equals(order.getStatus()) ||
+                                    "UNPAID".equals(order.getStatus());
+                    
+                    payBtn.setDisable(!canPay);
+                    payBtn.setVisible(canPay);
+                    
+                    setGraphic(buttonBox);
                 }
             }
         });
@@ -608,6 +651,9 @@ public class PurchaseOrderController {
         boolean success = inventoryDAO.createPurchaseOrder(currentOrder);
         
         if (success) {
+            // Create a pending transaction record
+            recordPurchaseTransaction(currentOrder, false);
+            
             showAlert(Alert.AlertType.INFORMATION, "Success", "Order Created", "Purchase order has been created successfully.");
             
             // Make sure the new order appears in the orders list
@@ -666,69 +712,129 @@ public class PurchaseOrderController {
     }
     
     /**
-     * Process receiving an order
+     * Procesa la recepción de una orden y registra el pago en un flujo integrado
      */
     private void receiveOrder(PurchaseOrder order) {
-        if (!"ORDERED".equals(order.getStatus())) {
-            showAlert(Alert.AlertType.WARNING, "Warning", "Cannot Receive Order", "Only orders with ORDERED status can be received.");
-            return;
-        }
-        
-        // Create a dialog for receiving the order
-        Dialog<Date> dialog = new Dialog<>();
-        dialog.setTitle("Receive Order");
-        dialog.setHeaderText("Receive Purchase Order #" + order.getId());
-        
-        // Set the button types
-        ButtonType receiveButtonType = new ButtonType("Receive", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(receiveButtonType, ButtonType.CANCEL);
-        
-        // Create the grid and add components
-        GridPane grid = new GridPane();
-        grid.setHgap(10);
-        grid.setVgap(10);
-        grid.setPadding(new Insets(20, 150, 10, 10));
-        
-        DatePicker receiveDatePicker = new DatePicker(LocalDate.now());
-        TextArea receiveNotesArea = new TextArea();
-        receiveNotesArea.setPrefRowCount(3);
-        
-        grid.add(new Label("Receive Date:"), 0, 0);
-        grid.add(receiveDatePicker, 1, 0);
-        grid.add(new Label("Notes:"), 0, 1);
-        grid.add(receiveNotesArea, 1, 1);
-        
-        dialog.getDialogPane().setContent(grid);
-        
-        // Request focus on the date picker
-        Platform.runLater(receiveDatePicker::requestFocus);
-        
-        // Convert the result when the receive button is clicked
-        dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == receiveButtonType) {
-                return Date.from(receiveDatePicker.getValue().atStartOfDay(ZoneId.systemDefault()).toInstant());
-            }
-            return null;
-        });
-        
-        Optional<Date> result = dialog.showAndWait();
-        
-        result.ifPresent(receiveDate -> {
-            boolean success = inventoryDAO.receivePurchaseOrder(order.getId(), receiveDate, receiveNotesArea.getText());
+        try {
+            // Cargar el diálogo de pago usando FXML
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/purchase-payment-dialog.fxml"));
+            DialogPane dialogPane = loader.load();
             
-            if (success) {
-                showAlert(Alert.AlertType.INFORMATION, "Success", "Order Received", "Purchase order has been received successfully.");
+            // Obtener el controlador y pasar los datos de la orden
+            PurchaseOrderPaymentController controller = loader.getController();
+            controller.initData(order);
+            controller.setReceivingMode(true); // Modo de recepción activado
+            
+            Dialog<ButtonType> dialog = new Dialog<>();
+            dialog.setDialogPane(dialogPane);
+            dialog.setTitle("Recibir y Registrar Pago - Orden #" + order.getId());
+            
+            // Mostrar el diálogo y esperar respuesta
+            Optional<ButtonType> result = dialog.showAndWait();
+            
+            // Si el usuario confirmó la recepción y pago
+            if (result.isPresent() && result.get() == ButtonType.OK) {
+                // La transacción contable ahora se registrará en PurchaseOrderPaymentController
+                // pero también podemos registrarla aquí como respaldo
+                recordPurchaseTransaction(order, true);
                 
-                // Update the order in the TableView immediately
-                order.setStatus("RECEIVED");
-                ordersTable.refresh();
+                // Refrescar la lista de órdenes para reflejar los cambios
+                handleRefreshOrders();
                 
-                // Then reload all orders to ensure data consistency
-                loadOrders();
-            } else {
-                showAlert(Alert.AlertType.ERROR, "Error", "Receiving Failed", "Could not process the order reception. Please try again.");
+                showAlert(Alert.AlertType.INFORMATION, "Orden Procesada", 
+                          "Orden recibida y pago registrado", 
+                          "La orden ha sido recibida exitosamente y el pago ha sido registrado.");
             }
-        });
+        } catch (IOException e) {
+            showAlert(Alert.AlertType.ERROR, "Error", "Error al procesar orden", 
+                      "No se pudo procesar la recepción y pago: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Muestra el diálogo para registrar un pago a una orden existente
+     */
+    private void showPaymentDialog(PurchaseOrder order) {
+        try {
+            // Cargar el diálogo de pago usando FXML
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/purchase-payment-dialog.fxml"));
+            DialogPane dialogPane = loader.load();
+            
+            // Obtener el controlador y pasar los datos de la orden
+            PurchaseOrderPaymentController controller = loader.getController();
+            controller.initData(order);
+            controller.setReceivingMode(false); // Modo de solo pago
+            
+            Dialog<ButtonType> dialog = new Dialog<>();
+            dialog.setDialogPane(dialogPane);
+            dialog.setTitle("Registrar Pago - Orden #" + order.getId());
+            
+            // Mostrar el diálogo y esperar respuesta
+            Optional<ButtonType> result = dialog.showAndWait();
+            
+            // Si el usuario confirmó el pago
+            if (result.isPresent() && result.get() == ButtonType.OK) {
+                // Registrar pago en contabilidad
+                recordPurchaseTransaction(order, true);
+                
+                // Refrescar la lista de órdenes para reflejar los cambios
+                handleRefreshOrders();
+                
+                showAlert(Alert.AlertType.INFORMATION, "Pago Registrado", 
+                          "Pago registrado correctamente", 
+                          "El pago a la orden ha sido registrado correctamente.");
+            }
+        } catch (IOException e) {
+            showAlert(Alert.AlertType.ERROR, "Error", "Error al procesar pago", 
+                      "No se pudo procesar el pago: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Método para registrar transacciones contables para compras
+     * @param order La orden de compra
+     * @param isPayment true si es un pago real, false si es solo una reserva/pedido
+     */
+    private void recordPurchaseTransaction(PurchaseOrder order, boolean isPayment) {
+        try {
+            // Crear descripción detallada
+            String description = String.format(
+                "Compra #%d - %s - %s", 
+                order.getId(), 
+                order.getSupplierName(),
+                isPayment ? "Pago realizado" : "Pedido registrado"
+            );
+            
+            // Si es un pago real, registramos transacción negativa (egreso)
+            if (isPayment) {
+                Transaction transaction = new Transaction(
+                    "compra",
+                    -order.getTotalAmount(), // Negativo porque es un egreso
+                    description
+                );
+                
+                // Establecer fecha actual
+                transaction.setTimestamp(LocalDateTime.now());
+                
+                // Registrar en el módulo contable (esto actualiza la base de datos)
+                boolean success = accountingModule.recordTransaction(transaction);
+                
+                if (success) {
+                    System.out.println("Transacción de compra registrada correctamente: " + description);
+                } else {
+                    System.err.println("Error al registrar transacción de compra: " + description);
+                }
+            } else {
+                // Si es solo un pedido, no registramos movimiento contable real
+                // pero podríamos registrar una reserva o compromiso si fuera necesario
+                System.out.println("Pedido registrado (pendiente de recepción y pago): " + description);
+            }
+        } catch (Exception e) {
+            System.err.println("Error al registrar transacción contable: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
     
     /**
@@ -793,38 +899,5 @@ public class PurchaseOrderController {
         // Clear and reload
         ordersList.clear();
         loadOrders();
-    }
-
-    /**
-     * Recibe una orden de compra y registra el pago.
-     * @param order Orden a recibir
-     */
-
-    
-    /**
-     * Muestra el diálogo para registrar el pago de una orden.
-     * @param order Orden a pagar
-     */
-    private void showPaymentDialog(PurchaseOrder order) {
-        try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/purchase-payment-dialog.fxml"));
-            DialogPane dialogPane = loader.load();
-            
-            PurchaseOrderPaymentController controller = loader.getController();
-            controller.initData(order);
-            
-            Dialog<ButtonType> dialog = new Dialog<>();
-            dialog.setDialogPane(dialogPane);
-            dialog.setTitle("Registrar Pago - Orden #" + order.getId());
-            
-            // Mostrar el diálogo y esperar respuesta
-            dialog.showAndWait();
-            
-            // Después del pago, refrescar la lista de órdenes
-            handleRefreshOrders();
-            
-        } catch (IOException e) {
-            showAlert(Alert.AlertType.ERROR, "Error", "Error al abrir formulario de pago", e.getMessage());
-        }
     }
 }

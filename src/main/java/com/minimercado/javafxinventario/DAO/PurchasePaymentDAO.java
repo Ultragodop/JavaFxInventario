@@ -27,80 +27,316 @@ public class PurchasePaymentDAO {
      * @param payment El objeto de pago con la información completa
      * @return true si se creó exitosamente, false en caso contrario
      */
-    public boolean createPayment(PurchasePayment payment) {
-        String sql = "INSERT INTO purchase_payments (purchase_order_id, payment_date, amount, original_amount, " +
-                    "payment_method, is_complete_payment, reference_number, notes, created_at, created_by, reconciled) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    public boolean insertPayment(PurchasePayment payment) {
+        Connection conn = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            conn.setAutoCommit(false);
+            
+            String sql = "INSERT INTO purchase_payments "
+                    + "(purchase_order_id, payment_date, amount, original_amount, payment_method, "
+                    + "is_complete_payment, reference_number, notes, created_at, created_by, reconciled) "
+                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)";
+            
+            try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+                
+                pstmt.setInt(1, payment.getPurchaseOrderId());
+                pstmt.setDate(2, java.sql.Date.valueOf(payment.getPaymentDate()));
+                pstmt.setDouble(3, payment.getAmount());
+                pstmt.setDouble(4, payment.getOriginalAmount());
+                pstmt.setString(5, payment.getPaymentMethod());
+                pstmt.setBoolean(6, payment.isCompletePayment());
+                pstmt.setString(7, payment.getReferenceNumber());
+                pstmt.setString(8, payment.getNotes());
+                pstmt.setString(9, payment.getCreatedBy());
+                pstmt.setBoolean(10, false); // Initially not reconciled
+                
+                int rowsAffected = pstmt.executeUpdate();
+                
+                if (rowsAffected > 0) {
+                    // Obtener el ID generado para el nuevo pago
+                    try (ResultSet rs = pstmt.getGeneratedKeys()) {
+                        if (rs.next()) {
+                            payment.setId(rs.getInt(1));
+                        }
+                    }
                     
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            
-            stmt.setInt(1, payment.getPurchaseOrderId());
-            stmt.setDate(2, Date.valueOf(payment.getPaymentDate()));
-            stmt.setDouble(3, payment.getAmount());
-            stmt.setDouble(4, payment.getOriginalAmount());
-            stmt.setString(5, payment.getPaymentMethod());
-            stmt.setBoolean(6, payment.isCompletePayment());
-            stmt.setString(7, payment.getReferenceNumber());
-            stmt.setString(8, payment.getNotes());
-            stmt.setTimestamp(9, Timestamp.valueOf(LocalDateTime.now()));
-            stmt.setString(10, payment.getCreatedBy());
-            stmt.setBoolean(11, payment.isReconciled());
-            
-            int affectedRows = stmt.executeUpdate();
-            if (affectedRows == 0) {
+                    // Actualizar el estado de pago y monto pagado en la orden
+                    double totalPaid = getTotalPaidForPurchaseOrder(conn, payment.getPurchaseOrderId());
+                    double orderAmount = getOrderTotalAmount(conn, payment.getPurchaseOrderId());
+                    
+                    String newStatus;
+                    if (payment.isCompletePayment() || Math.abs(totalPaid - orderAmount) < 0.01) {
+                        newStatus = "PAID";
+                    } else if (totalPaid > 0) {
+                        newStatus = "PARTIALLY_PAID";
+                    } else {
+                        newStatus = "UNPAID";
+                    }
+                    
+                    // Actualizar el estado de pago de la orden
+                    updateOrderPaymentStatus(conn, payment.getPurchaseOrderId(), newStatus, totalPaid);
+                    
+                    conn.commit();
+                    return true;
+                }
                 return false;
             }
-            
-            // Obtener el ID generado
-            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    payment.setId(generatedKeys.getInt(1));
-                    
-                    // Registrar el pago en el sistema contable si está marcado para reconciliar
-                    if (payment.isReconciled()) {
-                        registerPaymentInAccounting(payment);
-                    }
-                    
-                    // Actualizar el estado de la orden si es un pago completo
-                    if (payment.isCompletePayment()) {
-                        updatePurchaseOrderPaymentStatus(payment.getPurchaseOrderId(), true);
-                    }
-                    
-                    return true;
-                } else {
-                    logger.warning("No se pudo obtener el ID del pago insertado");
-                    return false;
-                }
-            }
-            
         } catch (SQLException e) {
-            logger.log(Level.SEVERE, "Error al crear pago", e);
+            try {
+                if (conn != null) conn.rollback();
+            } catch (SQLException ex) {
+                logger.log(Level.SEVERE, "Error rolling back transaction", ex);
+            }
+            logger.log(Level.SEVERE, "Error al insertar pago", e);
             return false;
+        } finally {
+            try {
+                if (conn != null) {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                }
+            } catch (SQLException e) {
+                logger.log(Level.SEVERE, "Error closing connection", e);
+            }
         }
     }
-    
+
     /**
-     * Actualiza el estado de pago de una orden de compra
+     * Obtiene el monto total de una orden de compra.
+     * 
+     * @param conn Conexión a la base de datos
+     * @param orderId ID de la orden de compra
+     * @return Monto total de la orden
+     * @throws SQLException si ocurre un error en la base de datos
+     */
+    private double getOrderTotalAmount(Connection conn, int orderId) throws SQLException {
+        String sql = "SELECT total_amount FROM purchase_orders WHERE id = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, orderId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("total_amount");
+                }
+            }
+        }
+        return 0.0;
+    }
+
+    /**
+     * Calcula el total pagado para una orden de compra.
+     * 
+     * @param conn Conexión a la base de datos
+     * @param orderId ID de la orden de compra
+     * @return Monto total pagado
+     * @throws SQLException si ocurre un error en la base de datos
+     */
+    private double getTotalPaidForPurchaseOrder(Connection conn, int orderId) throws SQLException {
+        String sql = "SELECT SUM(amount) as total_paid FROM purchase_payments WHERE purchase_order_id = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, orderId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble("total_paid");
+                }
+            }
+        }
+        return 0.0;
+    }
+
+    /**
+     * Actualiza el estado de pago de una orden de compra.
+     * 
+     * @param conn Conexión a la base de datos
+     * @param orderId ID de la orden de compra
+     * @param status Nuevo estado de pago
+     * @param totalPaid Total pagado hasta ahora
+     * @throws SQLException si ocurre un error en la base de datos
+     */
+    private void updateOrderPaymentStatus(Connection conn, int orderId, String status, double totalPaid) throws SQLException {
+        String sql = "UPDATE purchase_orders SET payment_status = ?, total_paid = ? WHERE id = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, status);
+            stmt.setDouble(2, totalPaid);
+            stmt.setInt(3, orderId);
+            stmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Calcula el total pagado para una orden de compra (versión pública).
+     * 
      * @param purchaseOrderId ID de la orden de compra
-     * @param isPaid true si está pagada, false si no
+     * @return Monto total pagado
+     */
+    public double getTotalPaidForPurchaseOrder(int purchaseOrderId) {
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            return getTotalPaidForPurchaseOrder(conn, purchaseOrderId);
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Error al calcular total pagado", e);
+            return 0.0;
+        }
+    }
+
+    /**
+     * Registra la recepción de una orden de compra
+     * @param orderId ID de la orden de compra
+     * @param receiveDate Fecha de recepción
+     * @param notes Notas adicionales
      * @return true si se actualizó correctamente, false en caso contrario
      */
-    private boolean updatePurchaseOrderPaymentStatus(int purchaseOrderId, boolean isPaid) {
-        String sql = "UPDATE purchase_orders SET payment_status = ? WHERE id = ?";
-        
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-             
-            stmt.setString(1, isPaid ? "PAID" : "UNPAID");
-            stmt.setInt(2, purchaseOrderId);
-            
-            int affectedRows = stmt.executeUpdate();
-            return affectedRows > 0;
-            
+    public boolean receivePurchaseOrder(int orderId, Date receiveDate, String notes) {
+        Connection conn = null;
+        boolean success = false;
+
+        try {
+            conn = DatabaseConnection.getConnection();
+            conn.setAutoCommit(false); // Inicia la transacción
+
+            // Obtener los ítems de la orden de compra
+            List<PurchaseOrder.Item> items = getPurchaseOrderItems(conn, orderId);
+
+            if (items.isEmpty()) {
+                logger.warning("No items found for purchase order: " + orderId);
+                return false;
+            }
+
+            // Actualizar el estado de la orden a RECEIVED manteniendo el estado de pago
+            String updateOrderSql = "UPDATE purchase_orders SET status = 'RECEIVED', received_date = ?, " +
+                    "notes = CONCAT(IFNULL(notes, ''), '\n\nReceived: ', ?) " +
+                    "WHERE id = ? AND (status = 'ORDERED' OR status = 'PARTIALLY_RECEIVED')";
+
+            try (PreparedStatement stmt = conn.prepareStatement(updateOrderSql)) {
+                stmt.setTimestamp(1, new java.sql.Timestamp(receiveDate.getTime()));
+                stmt.setString(2, notes);
+                stmt.setInt(3, orderId);
+
+                int affectedRows = stmt.executeUpdate();
+
+                if (affectedRows == 0) {
+                    logger.warning("Order not updated: may not exist or not be in ORDERED status - Order ID: " + orderId);
+                    conn.rollback();
+                    return false;
+                }
+
+                // Actualizar inventario y registrar movimientos para cada ítem
+                for (PurchaseOrder.Item item : items) {
+                    // Actualizar stock
+                    updateProductStock(conn, item.getProductId(), item.getQuantity());
+                    
+                    // Registrar movimiento de inventario
+                    registerInventoryMovement(conn, item.getProductId(), item.getQuantity(), "Recepción de orden #" + orderId);
+                }
+
+                // Registramos el movimiento en el log de auditoría
+                registerAuditEntry(conn, "Orden #" + orderId + " recibida en " + receiveDate + " con " + items.size() + " productos");
+
+                conn.commit();
+                success = true;
+                logger.info("Purchase order " + orderId + " successfully received");
+            }
+
+            return success;
+
         } catch (SQLException e) {
-            logger.log(Level.SEVERE, "Error al actualizar estado de pago de la orden", e);
+            logger.log(Level.SEVERE, "Error receiving purchase order: " + orderId, e);
+            try {
+                if (conn != null) conn.rollback();
+            } catch (SQLException ex) {
+                logger.log(Level.SEVERE, "Error rolling back transaction", ex);
+            }
             return false;
+        } finally {
+            try {
+                if (conn != null) {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                }
+            } catch (SQLException e) {
+                logger.log(Level.SEVERE, "Error closing connection", e);
+            }
+        }
+    }
+
+    /**
+     * Registra una entrada en el log de auditoría
+     * @param conn Conexión a la base de datos
+     * @param message Mensaje para el log
+     */
+    private void registerAuditEntry(Connection conn, String message) throws SQLException {
+        String sql = "INSERT INTO audit_log (action_type, description, user_id, action_date) " +
+                    "VALUES ('INVENTORY_UPDATE', ?, 'system', CURRENT_TIMESTAMP)";
+        
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, message);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            // No queremos que falle toda la operación si hay un problema con el log
+            logger.warning("Could not write to audit log: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Obtiene los ítems de una orden de compra.
+     * 
+     * @param conn Conexión a la base de datos
+     * @param orderId ID de la orden de compra
+     * @return Lista de ítems de la orden
+     * @throws SQLException si ocurre un error en la base de datos
+     */
+    private List<PurchaseOrder.Item> getPurchaseOrderItems(Connection conn, int orderId) throws SQLException {
+        List<PurchaseOrder.Item> items = new ArrayList<>();
+        String sql = "SELECT product_id, quantity, price FROM purchase_order_items WHERE order_id = ?";
+        
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, orderId);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    String productId = rs.getString("product_id");
+                    int quantity = rs.getInt("quantity");
+                    double price = rs.getDouble("price");
+                    
+                    items.add(new PurchaseOrder.Item(productId, quantity, price));
+                }
+            }
+        }
+        
+        return items;
+    }
+
+    /**
+     * Actualiza el stock de un producto
+     * @param conn Conexión a la base de datos
+     * @param productId ID del producto
+     * @param quantity Cantidad a añadir al stock
+     */
+    private void updateProductStock(Connection conn, String productId, int quantity) throws SQLException {
+        String updateSql = "UPDATE products SET stock_quantity = stock_quantity + ? WHERE barcode = ?";
+        
+        try (PreparedStatement stmt = conn.prepareStatement(updateSql)) {
+            stmt.setInt(1, quantity);
+            stmt.setString(2, productId);
+            stmt.executeUpdate();
+        }
+    }
+
+    /**
+     * Registra un movimiento de inventario
+     * @param conn Conexión a la base de datos
+     * @param productId ID del producto
+     * @param quantity Cantidad
+     * @param reference Referencia al movimiento
+     */
+    private void registerInventoryMovement(Connection conn, String productId, int quantity, String reference) throws SQLException {
+        String insertSql = "INSERT INTO inventory_movements (product_id, movement_date, quantity, movement_type, reference_info) " +
+                          "VALUES (?, CURRENT_TIMESTAMP, ?, 'PURCHASE_RECEIVE', ?)";
+        
+        try (PreparedStatement stmt = conn.prepareStatement(insertSql)) {
+            stmt.setString(1, productId);
+            stmt.setInt(2, quantity);
+            stmt.setString(3, reference);
+            stmt.executeUpdate();
         }
     }
     
@@ -130,32 +366,6 @@ public class PurchasePaymentDAO {
         }
         
         return payments;
-    }
-    
-    /**
-     * Calcula el total pagado para una orden de compra
-     * @param purchaseOrderId ID de la orden de compra
-     * @return Monto total pagado
-     */
-    public double getTotalPaidForPurchaseOrder(int purchaseOrderId) {
-        String sql = "SELECT SUM(amount) as total_paid FROM purchase_payments WHERE purchase_order_id = ?";
-        
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-             
-            stmt.setInt(1, purchaseOrderId);
-            
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getDouble("total_paid");
-                }
-            }
-            
-        } catch (SQLException e) {
-            logger.log(Level.SEVERE, "Error al calcular total pagado", e);
-        }
-        
-        return 0.0;
     }
     
     /**
@@ -192,7 +402,31 @@ public class PurchasePaymentDAO {
             if (affectedRows > 0) {
                 // Si era un pago completo, actualizar el estado de la orden
                 if (payment.isCompletePayment()) {
-                    updatePurchaseOrderPaymentStatus(payment.getPurchaseOrderId(), false);
+                    // Recalcular el estado de pago
+                    double totalPaid = getTotalPaidForPurchaseOrder(payment.getPurchaseOrderId());
+                    double orderAmount = getOrderTotalAmount(payment.getPurchaseOrderId());
+                    
+                    String newStatus;
+                    if (totalPaid > 0) {
+                        if (Math.abs(totalPaid - orderAmount) < 0.01) {
+                            newStatus = "PAID";
+                        } else {
+                            newStatus = "PARTIALLY_PAID";
+                        }
+                    } else {
+                        newStatus = "UNPAID";
+                    }
+                    
+                    // Actualizar el estado de la orden
+                    try (Connection updateConn = DatabaseConnection.getConnection();
+                         PreparedStatement updateStmt = updateConn.prepareStatement(
+                            "UPDATE purchase_orders SET payment_status = ?, total_paid = ? WHERE id = ?")) {
+                        
+                        updateStmt.setString(1, newStatus);
+                        updateStmt.setDouble(2, totalPaid);
+                        updateStmt.setInt(3, payment.getPurchaseOrderId());
+                        updateStmt.executeUpdate();
+                    }
                 }
                 return true;
             }
@@ -395,65 +629,18 @@ public class PurchasePaymentDAO {
     }
 
     /**
-     * Inserta un nuevo pago en la base de datos.
+     * Obtiene el monto total de una orden de compra por ID de la orden.
+     * Método de conveniencia que crea y cierra su propia conexión.
      * 
-     * @param payment El objeto PurchasePayment a insertar
-     * @return true si la inserción fue exitosa, false en caso contrario
+     * @param orderId ID de la orden de compra
+     * @return Monto total de la orden
      */
-    public boolean insertPayment(PurchasePayment payment) {
-        String sql = "INSERT INTO purchase_payments "
-                + "(purchase_order_id, payment_date, amount, original_amount, payment_method, "
-                + "complete_payment, reference_number, notes, created_at, created_by) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)";
-        
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            
-            pstmt.setInt(1, payment.getPurchaseOrderId());
-            pstmt.setDate(2, java.sql.Date.valueOf(payment.getPaymentDate()));
-            pstmt.setDouble(3, payment.getAmount());
-            pstmt.setDouble(4, payment.getOriginalAmount());
-            pstmt.setString(5, payment.getPaymentMethod());
-            pstmt.setBoolean(6, payment.isCompletePayment());
-            pstmt.setString(7, payment.getReferenceNumber());
-            pstmt.setString(8, payment.getNotes());
-            pstmt.setString(9, payment.getCreatedBy());
-            
-            int rowsAffected = pstmt.executeUpdate();
-            
-            // Si el pago es completo, actualizar el estado de la orden de compra
-            if (payment.isCompletePayment()) {
-                updateOrderStatus(payment.getPurchaseOrderId(), "PAGADA");
-            }
-            
-            return rowsAffected > 0;
+    public double getOrderTotalAmount(int orderId) {
+        try (Connection conn = DatabaseConnection.getConnection()) {
+            return getOrderTotalAmount(conn, orderId);
         } catch (SQLException e) {
-            System.err.println("Error al insertar pago: " + e.getMessage());
-            return false;
-        }
-    }
-    
-    /**
-     * Actualiza el estado de una orden de compra.
-     * 
-     * @param purchaseOrderId ID de la orden de compra
-     * @param status Nuevo estado a aplicar
-     * @return true si la actualización fue exitosa, false en caso contrario
-     */
-    private boolean updateOrderStatus(int purchaseOrderId, String status) {
-        String sql = "UPDATE purchase_orders SET status = ? WHERE id = ?";
-        
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
-            pstmt.setString(1, status);
-            pstmt.setInt(2, purchaseOrderId);
-            
-            int rowsAffected = pstmt.executeUpdate();
-            return rowsAffected > 0;
-        } catch (SQLException e) {
-            System.err.println("Error al actualizar estado de orden: " + e.getMessage());
-            return false;
+            logger.log(Level.SEVERE, "Error getting order total amount", e);
+            return 0.0;
         }
     }
 }

@@ -37,7 +37,38 @@
                   <Label fx:id="balanceLabel" text="0.00" GridPane.columnIndex="3" GridPane.rowIndex="1" />
                </children>
             </GridPane>
+            
+            <!-- Sección de Recepción - visible solo en modo recepción -->
+            <VBox spacing="10.0" fx:id="receiptSection">
+               <children>
+                  <Label text="Información de Recepción" styleClass="section-header" fx:id="receiptStatusLabel" />
+                  <GridPane hgap="10.0" vgap="10.0">
+                     <columnConstraints>
+                        <ColumnConstraints hgrow="NEVER" minWidth="120.0" />
+                        <ColumnConstraints hgrow="ALWAYS" minWidth="200.0" />
+                     </columnConstraints>
+                     <rowConstraints>
+                        <RowConstraints minHeight="30.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                        <RowConstraints minHeight="30.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                     </rowConstraints>
+                     <children>
+                        <Label text="Fecha de Recepción:" />
+                        <DatePicker fx:id="receiptDatePicker" GridPane.columnIndex="1" />
+                        <Label text="Notas de Recepción:" GridPane.rowIndex="1" />
+                        <TextField fx:id="receiptNotesField" GridPane.columnIndex="1" GridPane.rowIndex="1" 
+                                  promptText="Notas adicionales de recepción" />
+                     </children>
+                  </GridPane>
+               </children>
+               <padding>
+                  <Insets bottom="10.0" />
+               </padding>
+            </VBox>
+            
             <Separator />
+            
+            <!-- Sección de Pago -->
+            <Label text="Información de Pago" styleClass="section-header" />
             <GridPane hgap="10.0" vgap="10.0">
                <columnConstraints>
                   <ColumnConstraints hgrow="NEVER" minWidth="120.0" />
@@ -49,21 +80,18 @@
                   <RowConstraints minHeight="30.0" prefHeight="30.0" vgrow="SOMETIMES" />
                   <RowConstraints minHeight="30.0" prefHeight="30.0" vgrow="SOMETIMES" />
                   <RowConstraints minHeight="60.0" prefHeight="60.0" vgrow="SOMETIMES" />
+                  <RowConstraints minHeight="30.0" prefHeight="30.0" vgrow="SOMETIMES" />
                </rowConstraints>
                <children>
                   <Label text="Fecha de Pago:" />
                   <DatePicker fx:id="paymentDatePicker" GridPane.columnIndex="1" />
                   <Label text="Monto:" GridPane.rowIndex="1" />
-                  <HBox alignment="CENTER_LEFT" spacing="5.0" GridPane.columnIndex="1" GridPane.rowIndex="1">
-                     <children>
-                        <Label text="0.0" />
-                        <TextField fx:id="amountField" />
-                     </children>
-                  </HBox>
+                  <TextField fx:id="amountField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
                   <Label text="Método de Pago:" GridPane.rowIndex="2" />
                   <ComboBox fx:id="paymentMethodCombo" prefWidth="200.0" GridPane.columnIndex="1" GridPane.rowIndex="2" />
                   <Label text="Referencia:" GridPane.rowIndex="3" />
-                  <TextField fx:id="referenceField" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                  <TextField fx:id="referenceField" GridPane.columnIndex="1" GridPane.rowIndex="3" 
+                            promptText="Nº de cheque, transferencia, etc." />
                   <Label text="Notas:" GridPane.rowIndex="4" />
                   <TextArea fx:id="notesArea" prefHeight="60.0" GridPane.columnIndex="1" GridPane.rowIndex="4" />
                   <CheckBox fx:id="completePaymentCheckBox" text="Pago Completo" GridPane.columnIndex="1" GridPane.rowIndex="5" />
@@ -77,4 +105,7 @@
       <ButtonType fx:constant="OK" />
       <ButtonType fx:constant="CANCEL" />
    </buttonTypes>
+   <header>
+      <Label styleClass="dialog-header" text="Registrar Pago" />
+   </header>
 </DialogPane>

@@ -1,64 +1,119 @@
 package com.minimercado.javafxinventario.utils;
 
-import java.io.FileOutputStream;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-
+import com.minimercado.javafxinventario.modules.PriceHistoryEntry;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-import com.minimercado.javafxinventario.models.PriceHistoryEntry;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 
+/**
+ * Clase utilitaria para exportar datos a archivos Excel
+ */
 public class ExcelExporter {
-    
-    private static final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-    
-    public void exportPriceHistory(List<PriceHistoryEntry> data, String filePath) throws Exception {
+
+    /**
+     * Exporta una lista de entradas de historial de precios a un archivo Excel
+     * @param entries Lista de entradas de historial de precios
+     * @param filePath Ruta del archivo donde se guardará
+     * @throws IOException Si ocurre un error al escribir el archivo
+     */
+    public static void exportPriceHistory(List<PriceHistoryEntry> entries, String filePath) throws IOException {
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Historial de Precios");
             
-            // Create header row
+            // Crear estilos
+            CellStyle headerStyle = createHeaderStyle(workbook);
+            CellStyle dateStyle = createDateStyle(workbook);
+            CellStyle priceStyle = createPriceStyle(workbook);
+            
+            // Crear encabezados
             Row headerRow = sheet.createRow(0);
-            headerRow.createCell(0).setCellValue("ID Producto");
-            headerRow.createCell(1).setCellValue("Nombre del Producto");
-            headerRow.createCell(2).setCellValue("Precio Anterior");
-            headerRow.createCell(3).setCellValue("Precio Actual");
-            headerRow.createCell(4).setCellValue("Fecha de Cambio");
-            headerRow.createCell(5).setCellValue("% Cambio");
-            headerRow.createCell(6).setCellValue("Usuario");
+            List<String> headers = PriceHistoryEntry.getExcelHeaders();
             
-            // Style for header row
-            CellStyle headerStyle = workbook.createCellStyle();
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerStyle.setFont(headerFont);
-            
-            for (int i = 0; i < 7; i++) {
-                headerRow.getCell(i).setCellStyle(headerStyle);
+            for (int i = 0; i < headers.size(); i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers.get(i));
+                cell.setCellStyle(headerStyle);
             }
             
-            // Fill data rows
+            // Añadir datos
             int rowNum = 1;
-            for (PriceHistoryEntry entry : data) {
+            for (PriceHistoryEntry entry : entries) {
                 Row row = sheet.createRow(rowNum++);
-                row.createCell(0).setCellValue(entry.getProductId());
-                row.createCell(1).setCellValue(entry.getProductName());
-                row.createCell(2).setCellValue(entry.getPreviousPrice());
-                row.createCell(3).setCellValue(entry.getCurrentPrice());
-                row.createCell(4).setCellValue(entry.getChangeDate().format(dateFormatter));
-                row.createCell(5).setCellValue(String.format("%.2f%%", entry.getPercentageChange()));
-                row.createCell(6).setCellValue(entry.getUser());
+                Object[] data = entry.toExcelRow();
+                
+                for (int i = 0; i < data.length; i++) {
+                    Cell cell = row.createCell(i);
+                    if (data[i] instanceof Double) {
+                        cell.setCellValue((Double) data[i]);
+                        cell.setCellStyle(priceStyle);
+                    } else if (data[i] instanceof LocalDateTime) {
+                        cell.setCellValue(((LocalDateTime) data[i]).format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+                        cell.setCellStyle(dateStyle);
+                    } else if (data[i] instanceof Integer) {
+                        cell.setCellValue((Integer) data[i]);
+                    } else {
+                        cell.setCellValue(data[i].toString());
+                    }
+                }
             }
             
-            // Auto size columns
-            for (int i = 0; i < 7; i++) {
+            // Auto-ajustar columnas
+            for (int i = 0; i < headers.size(); i++) {
                 sheet.autoSizeColumn(i);
             }
             
-            // Write to file
-            try (FileOutputStream outputStream = new FileOutputStream(filePath)) {
-                workbook.write(outputStream);
+            // Guardar archivo
+            try (FileOutputStream fileOut = new FileOutputStream(filePath)) {
+                workbook.write(fileOut);
             }
         }
+    }
+    
+    /**
+     * Exporta un historial de precios con nombre de archivo generado automáticamente
+     * @param entries Lista de entradas de historial de precios
+     * @return Ruta del archivo generado
+     * @throws IOException Si ocurre un error al escribir el archivo
+     */
+    public static Path exportPriceHistory(List<PriceHistoryEntry> entries) throws IOException {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String fileName = "historial_precios_" + timestamp + ".xlsx";
+        Path filePath = Paths.get(System.getProperty("user.home"), "Downloads", fileName);
+        
+        exportPriceHistory(entries, filePath.toString());
+        return filePath;
+    }
+    
+    private static CellStyle createHeaderStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.LIGHT_BLUE.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+        return style;
+    }
+    
+    private static CellStyle createDateStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setDataFormat(workbook.getCreationHelper().createDataFormat().getFormat("dd/mm/yyyy hh:mm"));
+        return style;
+    }
+    
+    private static CellStyle createPriceStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setDataFormat(workbook.getCreationHelper().createDataFormat().getFormat("#,##0.00"));
+        return style;
     }
 }

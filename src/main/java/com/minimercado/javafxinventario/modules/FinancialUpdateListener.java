@@ -1,9 +1,10 @@
 package com.minimercado.javafxinventario.modules;
 
 /**
- * Interface for listeners that need to be notified when financial data is updated
+ * Interface for components that need to be notified of financial data updates
  */
 public interface FinancialUpdateListener {
+    
     /**
      * Called when financial data has been updated
      */

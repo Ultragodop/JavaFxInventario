@@ -1,7 +1,7 @@
 package com.minimercado.javafxinventario.controllers;
 
 import com.minimercado.javafxinventario.DAO.InventoryDAO;
-import com.minimercado.javafxinventario.modules.PriceHistory;
+import com.minimercado.javafxinventario.modules.PriceChange;
 import com.minimercado.javafxinventario.modules.Product;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
@@ -9,320 +9,399 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.File;
-import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Controller for Price History Report screen
+ */
 public class PriceHistoryReportController {
 
-    // TableView and column declarations to match FXML
-    @FXML private TableView<PriceHistory> priceHistoryTable;
-    @FXML private TableColumn<PriceHistory, String> productIdColumn;
-    @FXML private TableColumn<PriceHistory, String> productNameColumn;
-    @FXML private TableColumn<PriceHistory, Double> previousPriceColumn;
-    @FXML private TableColumn<PriceHistory, Double> currentPriceColumn;
-    @FXML private TableColumn<PriceHistory, Date> changeDateColumn;
-    @FXML private TableColumn<PriceHistory, Double> percentageChangeColumn;
-    @FXML private TableColumn<PriceHistory, String> userColumn;
-
-    // Other UI elements
-    @FXML private ComboBox<String> periodCombo;
-    @FXML private Label statusLabel;
-
-    // Data and helpers
-    private InventoryDAO inventoryDAO = new InventoryDAO();
-    private ObservableList<PriceHistory> priceHistoryList = FXCollections.observableArrayList();
-    private SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+    @FXML private TextField searchField;
+    @FXML private TableView<Product> productsTable;
+    @FXML private TableColumn<Product, String> barcodeColumn;
+    @FXML private TableColumn<Product, String> nameColumn;
+    @FXML private TableColumn<Product, Double> currentPriceColumn;
+    @FXML private TableColumn<Product, String> categoryColumn;
     
+    @FXML private TableView<PriceChange> priceHistoryTable;
+    @FXML private TableColumn<PriceChange, Date> dateColumn;
+    @FXML private TableColumn<PriceChange, Double> priceColumn;
+    @FXML private TableColumn<PriceChange, Double> changePercentColumn;
+    @FXML private TableColumn<PriceChange, String> userColumn;
+    
+    @FXML private Label productNameLabel;
+    @FXML private Label totalChangesLabel;
+    @FXML private Label averageChangeLabel;
+    @FXML private Label statusLabel;
+    @FXML private Label dateRangeLabel;
+    
+    @FXML private DatePicker startDatePicker;
+    @FXML private DatePicker endDatePicker;
+    
+    @FXML private LineChart<Number, Number> priceChart;
+    @FXML private NumberAxis xAxis;
+    @FXML private NumberAxis yAxis;
+    
+    private ObservableList<Product> productList = FXCollections.observableArrayList();
+    private ObservableList<PriceChange> priceChangesList = FXCollections.observableArrayList();
+    private InventoryDAO inventoryDAO;
+    
+    /**
+     * Initialize controller
+     */
     @FXML
     public void initialize() {
-        // Initialize the table columns with proper cell value factories
-        productIdColumn.setCellValueFactory(cellData -> 
-            new SimpleStringProperty(cellData.getValue().getProductId()));
-            
-        productNameColumn.setCellValueFactory(cellData -> {
-            // In a real implementation, you would lookup the product name by ID
-            // For now, we'll just use a placeholder or the ID itself
-            String productId = cellData.getValue().getProductId();
-            String productName = getProductNameById(productId);
-            return new SimpleStringProperty(productName);
-        });
+        // Initialize table columns
+        barcodeColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getBarcode()));
+        nameColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getName()));
+        currentPriceColumn.setCellValueFactory(data -> 
+            new SimpleDoubleProperty(data.getValue().getSellingPrice()).asObject());
+        categoryColumn.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getCategory()));
         
-        previousPriceColumn.setCellValueFactory(cellData -> {
-            // This would be based on how PriceHistory tracks the previous price
-            // For simplicity, we'll use a calculation based on current price and change percentage
-            double currentPrice = cellData.getValue().getPrice();
-            double changePercent = cellData.getValue().getChangePercent();
-            double previousPrice = currentPrice / (1 + (changePercent / 100));
-            return new SimpleDoubleProperty(previousPrice).asObject();
-        });
+        dateColumn.setCellValueFactory(new PropertyValueFactory<>("date"));
+        priceColumn.setCellValueFactory(new PropertyValueFactory<>("price"));
+        changePercentColumn.setCellValueFactory(new PropertyValueFactory<>("changePercent"));
+        userColumn.setCellValueFactory(new PropertyValueFactory<>("user"));
         
-        currentPriceColumn.setCellValueFactory(cellData -> 
-            new SimpleDoubleProperty(cellData.getValue().getPrice()).asObject());
-            
-        changeDateColumn.setCellValueFactory(cellData -> 
-            new SimpleObjectProperty<>(cellData.getValue().getDate()));
-            
-        percentageChangeColumn.setCellValueFactory(cellData -> 
-            new SimpleDoubleProperty(cellData.getValue().getChangePercent()).asObject());
-            
-        userColumn.setCellValueFactory(cellData -> 
-            new SimpleStringProperty(cellData.getValue().getUser()));
-            
-        // Format currency columns
-        previousPriceColumn.setCellFactory(column -> new TableCell<PriceHistory, Double>() {
-            @Override
-            protected void updateItem(Double item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                } else {
-                    setText(String.format("$%.2f", item));
-                }
-            }
-        });
-        
-        currentPriceColumn.setCellFactory(column -> new TableCell<PriceHistory, Double>() {
-            @Override
-            protected void updateItem(Double item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                } else {
-                    setText(String.format("$%.2f", item));
-                }
-            }
-        });
-        
-        // Format percentage column
-        percentageChangeColumn.setCellFactory(column -> new TableCell<PriceHistory, Double>() {
-            @Override
-            protected void updateItem(Double item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                } else {
-                    setText(String.format("%.2f%%", item));
-                    if (item > 0) {
-                        setStyle("-fx-text-fill: green;");
-                    } else if (item < 0) {
-                        setStyle("-fx-text-fill: red;");
+        // Format the date column
+        dateColumn.setCellFactory(column -> {
+            TableCell<PriceChange, Date> cell = new TableCell<PriceChange, Date>() {
+                private final SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+                
+                @Override
+                protected void updateItem(Date item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if(empty || item == null) {
+                        setText(null);
                     } else {
-                        setStyle("");
+                        setText(format.format(item));
                     }
                 }
-            }
+            };
+            return cell;
         });
         
-        // Format date column
-        changeDateColumn.setCellFactory(column -> new TableCell<PriceHistory, Date>() {
-            @Override
-            protected void updateItem(Date item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty || item == null) {
-                    setText(null);
-                } else {
-                    setText(dateFormat.format(item));
+        // Format price columns with currency
+        currentPriceColumn.setCellFactory(column -> {
+            return new TableCell<Product, Double>() {
+                @Override
+                protected void updateItem(Double item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if(empty || item == null) {
+                        setText(null);
+                    } else {
+                        setText(String.format("$%.2f", item));
+                    }
+                }
+            };
+        });
+        
+        priceColumn.setCellFactory(column -> {
+            return new TableCell<PriceChange, Double>() {
+                @Override
+                protected void updateItem(Double item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if(empty || item == null) {
+                        setText(null);
+                    } else {
+                        setText(String.format("$%.2f", item));
+                    }
+                }
+            };
+        });
+        
+        changePercentColumn.setCellFactory(column -> {
+            return new TableCell<PriceChange, Double>() {
+                @Override
+                protected void updateItem(Double item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if(empty || item == null) {
+                        setText(null);
+                    } else {
+                        setText(String.format("%.2f%%", item));
+                        // Color coding for positive/negative changes
+                        if(item > 0) {
+                            setStyle("-fx-text-fill: green;");
+                        } else if(item < 0) {
+                            setStyle("-fx-text-fill: red;");
+                        } else {
+                            setStyle("");
+                        }
+                    }
+                }
+            };
+        });
+        
+        // Set up the table selection listeners
+        productsTable.getSelectionModel().selectedItemProperty().addListener(
+            (obs, oldVal, newVal) -> {
+                if (newVal != null) {
+                    loadPriceHistory(newVal);
                 }
             }
-        });
+        );
         
-        // Initialize period combo with options
-        periodCombo.setItems(FXCollections.observableArrayList(
-            "Últimos 7 días", 
-            "Últimos 30 días", 
-            "Últimos 90 días", 
-            "Último año", 
-            "Todo"
-        ));
-        periodCombo.setValue("Últimos 30 días");
+        // Initialize date pickers with default values (last 30 days)
+        LocalDate today = LocalDate.now();
+        LocalDate thirtyDaysAgo = today.minusDays(30);
         
-        // Set items to the table
-        priceHistoryTable.setItems(priceHistoryList);
+        startDatePicker.setValue(thirtyDaysAgo);
+        endDatePicker.setValue(today);
+        updateDateRangeLabel(thirtyDaysAgo, today);
         
-        // Initial load
-        handleGenerateReport();
+        // Set items to tables
+        productsTable.setItems(productList);
+        priceHistoryTable.setItems(priceChangesList);
     }
     
-    private String getProductNameById(String productId) {
-        // This would typically query the database for the product name
-        // For now we'll return a placeholder
-        return "Product " + productId;
+    /**
+     * Initialize data in the controller
+     * @param products List of products to display
+     * @param dao Data access object for fetching price history
+     */
+    public void initData(List<Product> products, InventoryDAO dao) {
+        this.inventoryDAO = dao;
+        
+        if (products != null) {
+            productList.setAll(products);
+        }
+        
+        // If products were provided, automatically show them
+        if (!productList.isEmpty()) {
+            statusLabel.setText(String.format("Mostrando %d productos", productList.size()));
+        } else {
+            statusLabel.setText("No hay productos para mostrar");
+        }
     }
     
-    @FXML
-    private void handleGenerateReport() {
+    /**
+     * Load price history for the selected product
+     * @param product Selected product
+     */
+    private void loadPriceHistory(Product product) {
+        if (product == null || inventoryDAO == null) return;
+        
         try {
-            // Clear existing data
-            priceHistoryList.clear();
+            // Update product name label
+            productNameLabel.setText(product.getName() + " (" + product.getBarcode() + ")");
             
-            // Get selected period
-            String selectedPeriod = periodCombo.getValue();
-            Date startDate = calculateStartDate(selectedPeriod);
+            // Get date range from pickers
+            LocalDate startDate = startDatePicker.getValue();
+            LocalDate endDate = endDatePicker.getValue();
             
-            // Load price history data
-            // Fix the method call to match the required signature
-            // Instead of passing date range, we'll get all price history
-            // and filter by date in memory
-            List<PriceHistory> allHistory = new ArrayList<>();
+            // Convert LocalDate to Date
+            Date start = Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            Date end = Date.from(endDate.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
             
-            // Get all products first to iterate through their IDs
-            List<Product> products = inventoryDAO.getAllProducts();
-            for (Product product : products) {
-                // Get price history for each product
-                List<PriceHistory> productHistory = inventoryDAO.getPriceHistory(product.getBarcode());
-                // Add to our master list
-                allHistory.addAll(productHistory);
-            }
+            // Get price history from DAO
+            List<PriceChange> priceHistory = inventoryDAO.getPriceHistory(product.getBarcode(), start, end);
+            priceChangesList.setAll(priceHistory);
             
-            // Filter by date range
-            List<PriceHistory> filteredHistory = allHistory.stream()
-                .filter(ph -> {
-                    // Only include entries within our date range
-                    return ph.getDate() != null && 
-                           !ph.getDate().before(startDate) && 
-                           !ph.getDate().after(new Date());
-                })
-                .collect(Collectors.toList());
+            // Update summary statistics
+            updatePriceStatistics(priceHistory);
             
-            priceHistoryList.addAll(filteredHistory);
-            
-            // Update status
-            statusLabel.setText("Se encontraron " + filteredHistory.size() + " cambios de precio");
+            // Create price chart
+            createPriceChart(product, priceHistory);
             
         } catch (Exception e) {
-            statusLabel.setText("Error al generar reporte: " + e.getMessage());
+            statusLabel.setText("Error al cargar historial de precios: " + e.getMessage());
             e.printStackTrace();
         }
     }
     
-    private Date calculateStartDate(String period) {
-        LocalDate now = LocalDate.now();
-        LocalDate startDate;
+    /**
+     * Update price statistics labels
+     * @param priceHistory List of price changes
+     */
+    private void updatePriceStatistics(List<PriceChange> priceHistory) {
+        totalChangesLabel.setText(String.valueOf(priceHistory.size()));
         
-        switch(period) {
-            case "Últimos 7 días":
-                startDate = now.minusDays(7);
-                break;
-            case "Últimos 30 días":
-                startDate = now.minusDays(30);
-                break;
-            case "Últimos 90 días":
-                startDate = now.minusDays(90);
-                break;
-            case "Último año":
-                startDate = now.minusYears(1);
-                break;
-            case "Todo":
-            default:
-                startDate = now.minusYears(10); // Far back in the past
-                break;
+        if (!priceHistory.isEmpty()) {
+            double avgChange = priceHistory.stream()
+                .mapToDouble(PriceChange::getChangePercent)
+                .average()
+                .orElse(0);
+            
+            averageChangeLabel.setText(String.format("%.2f%%", avgChange));
+        } else {
+            averageChangeLabel.setText("0.00%");
         }
-        
-        return Date.from(startDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
     }
     
+    /**
+     * Create price chart from history data
+     * @param product The product
+     * @param priceHistory List of price changes
+     */
+    private void createPriceChart(Product product, List<PriceChange> priceHistory) {
+        priceChart.getData().clear();
+        
+        // If no price history, don't create chart
+        if (priceHistory.isEmpty()) return;
+        
+        // Create series for the chart
+        XYChart.Series<Number, Number> series = new XYChart.Series<>();
+        series.setName("Precio de " + product.getName());
+        
+        // Sort price changes by date
+        List<PriceChange> sortedChanges = new ArrayList<>(priceHistory);
+        sortedChanges.sort(Comparator.comparing(PriceChange::getDate));
+        
+        // Add data points - convert date to millis for X axis
+        for (PriceChange change : sortedChanges) {
+            series.getData().add(new XYChart.Data<>(
+                change.getDate().getTime(), 
+                change.getPrice()
+            ));
+        }
+        
+        priceChart.getData().add(series);
+    }
+    
+    /**
+     * Handle update date range button click
+     */
     @FXML
-    private void handleExportToExcel() {
-        if (priceHistoryList.isEmpty()) {
+    public void handleUpdateDateRange() {
+        Product selectedProduct = productsTable.getSelectionModel().getSelectedItem();
+        if (selectedProduct != null) {
+            LocalDate startDate = startDatePicker.getValue();
+            LocalDate endDate = endDatePicker.getValue();
+            
+            // Validate dates
+            if (startDate == null || endDate == null) {
+                statusLabel.setText("Por favor seleccione fechas válidas");
+                return;
+            }
+            
+            if (startDate.isAfter(endDate)) {
+                statusLabel.setText("La fecha inicial no puede ser posterior a la fecha final");
+                return;
+            }
+            
+            updateDateRangeLabel(startDate, endDate);
+            loadPriceHistory(selectedProduct);
+        } else {
+            statusLabel.setText("Seleccione un producto primero");
+        }
+    }
+    
+    /**
+     * Update the date range label
+     * @param startDate Start date
+     * @param endDate End date
+     */
+    private void updateDateRangeLabel(LocalDate startDate, LocalDate endDate) {
+        dateRangeLabel.setText(String.format(
+            "Período: %s al %s", 
+            startDate.toString(),
+            endDate.toString()
+        ));
+    }
+    
+    /**
+     * Handle search button click - this was missing and causing the error
+     */
+    @FXML
+    public void handleSearchProducts() {
+        String searchTerm = searchField.getText().trim();
+        
+        if (searchTerm.isEmpty()) {
+            statusLabel.setText("Por favor ingrese un término de búsqueda");
+            return;
+        }
+        
+        // Filter products based on search term
+        List<Product> filteredProducts = productList.stream()
+            .filter(p -> p.getBarcode().contains(searchTerm) || 
+                         p.getName().toLowerCase().contains(searchTerm.toLowerCase()) ||
+                         p.getCategory().toLowerCase().contains(searchTerm.toLowerCase()))
+            .collect(Collectors.toList());
+        
+        // Update table with filtered results
+        productsTable.setItems(FXCollections.observableArrayList(filteredProducts));
+        
+        if (filteredProducts.isEmpty()) {
+            statusLabel.setText("No se encontraron productos que coincidan con '" + searchTerm + "'");
+        } else {
+            statusLabel.setText("Se encontraron " + filteredProducts.size() + " productos");
+        }
+    }
+    
+    /**
+     * Handle reset button click
+     */
+    @FXML
+    public void handleResetSearch() {
+        searchField.clear();
+        productsTable.setItems(productList);
+        statusLabel.setText("Búsqueda reiniciada. Mostrando " + productList.size() + " productos");
+    }
+    
+    /**
+     * Handle export to CSV button click
+     */
+    @FXML
+    public void handleExportToCsv() {
+        Product selectedProduct = productsTable.getSelectionModel().getSelectedItem();
+        if (selectedProduct == null || priceChangesList.isEmpty()) {
             statusLabel.setText("No hay datos para exportar");
             return;
         }
         
         FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Guardar Reporte");
+        fileChooser.setTitle("Guardar historial de precios");
         fileChooser.getExtensionFilters().add(
-            new FileChooser.ExtensionFilter("Archivos Excel", "*.xlsx")
+            new FileChooser.ExtensionFilter("CSV Files", "*.csv")
         );
-        fileChooser.setInitialFileName("historial_precios.xlsx");
+        fileChooser.setInitialFileName("historial_precios_" + selectedProduct.getBarcode() + ".csv");
         
-        Stage stage = (Stage) priceHistoryTable.getScene().getWindow();
+        Stage stage = (Stage) statusLabel.getScene().getWindow();
         File file = fileChooser.showSaveDialog(stage);
         
         if (file != null) {
-            try (Workbook workbook = new XSSFWorkbook()) {
-                Sheet sheet = workbook.createSheet("Historial de Precios");
+            try (FileWriter writer = new FileWriter(file)) {
+                // Write header
+                writer.write("Fecha,Precio,Variación %,Usuario\n");
                 
-                // Create header row
-                Row headerRow = sheet.createRow(0);
-                headerRow.createCell(0).setCellValue("ID Producto");
-                headerRow.createCell(1).setCellValue("Nombre Producto");
-                headerRow.createCell(2).setCellValue("Precio Anterior");
-                headerRow.createCell(3).setCellValue("Precio Actual");
-                headerRow.createCell(4).setCellValue("Fecha de Cambio");
-                headerRow.createCell(5).setCellValue("% Cambio");
-                headerRow.createCell(6).setCellValue("Usuario");
-                
-                // Fill data rows
-                for (int i = 0; i < priceHistoryList.size(); i++) {
-                    PriceHistory history = priceHistoryList.get(i);
-                    Row row = sheet.createRow(i + 1);
-                    
-                    row.createCell(0).setCellValue(history.getProductId());
-                    row.createCell(1).setCellValue(getProductNameById(history.getProductId()));
-                    
-                    double currentPrice = history.getPrice();
-                    double changePercent = history.getChangePercent();
-                    double previousPrice = currentPrice / (1 + (changePercent / 100));
-                    
-                    row.createCell(2).setCellValue(previousPrice);
-                    row.createCell(3).setCellValue(currentPrice);
-                    row.createCell(4).setCellValue(dateFormat.format(history.getDate()));
-                    row.createCell(5).setCellValue(history.getChangePercent());
-                    row.createCell(6).setCellValue(history.getUser());
+                // Write data
+                SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+                for (PriceChange change : priceChangesList) {
+                    writer.write(String.format("%s,%.2f,%.2f,%s\n",
+                        dateFormat.format(change.getDate()),
+                        change.getPrice(),
+                        change.getChangePercent(),
+                        change.getUser() != null ? change.getUser() : ""
+                    ));
                 }
                 
-                // Auto-size columns
-                for (int i = 0; i < 7; i++) {
-                    sheet.autoSizeColumn(i);
-                }
-                
-                // Write to file
-                try (FileOutputStream outputStream = new FileOutputStream(file)) {
-                    workbook.write(outputStream);
-                }
-                
-                statusLabel.setText("Datos exportados exitosamente a: " + file.getName());
-                
+                statusLabel.setText("Datos exportados correctamente a " + file.getName());
             } catch (Exception e) {
-                statusLabel.setText("Error al exportar datos: " + e.getMessage());
-                e.printStackTrace();
+                statusLabel.setText("Error al exportar: " + e.getMessage());
             }
         }
     }
     
-    @FXML
-    private void handleClose() {
-        Stage stage = (Stage) priceHistoryTable.getScene().getWindow();
-        stage.close();
-    }
-    
     /**
-     * Initialize data for the report
-     * @param products List of products to display price history for
-     * @param inventoryDAO DAO for accessing inventory data
+     * Handle close button click
      */
-    public void initData(ObservableList<Product> products, InventoryDAO inventoryDAO) {
-        this.inventoryDAO = inventoryDAO;
-        
-        // If a specific set of products is provided, we could filter the price history
-        // to only show history for those products
-        
-        // For now, just trigger the report generation
-        handleGenerateReport();
+    @FXML
+    public void handleClose() {
+        Stage stage = (Stage) statusLabel.getScene().getWindow();
+        stage.close();
     }
 }

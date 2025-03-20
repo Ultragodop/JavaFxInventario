@@ -1,0 +1,31 @@
+/* Tema claro para la aplicación */
+
+.root {
+    -fx-primary: #1976d2;
+    -fx-primary-light: #63a4ff;
+    -fx-primary-dark: #004ba0;
+    
+    -fx-background-color: white;
+    -fx-text-color: #212121;
+    -fx-secondary-text-color: #757575;
+    
+    -fx-sidebar-color: #f8f9fa;
+    -fx-sidebar-hover: #e9ecef;
+    
+    -fx-border-color: #dee2e6;
+    -fx-shadow-color: rgba(0, 0, 0, 0.1);
+    
+    -fx-success-color: #28a745;
+    -fx-warning-color: #ffc107;
+    -fx-error-color: #dc3545;
+}
+
+/* Estilos específicos para tema claro */
+.top-bar {
+    -fx-effect: dropshadow(gaussian, -fx-shadow-color, 6, 0, 0, 2);
+}
+
+.menu-button:hover .ikonli-font-icon, 
+.submenu-button:hover .ikonli-font-icon {
+    -fx-icon-color: -fx-primary-dark;
+}

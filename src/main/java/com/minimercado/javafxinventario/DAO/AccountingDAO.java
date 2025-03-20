@@ -54,16 +54,26 @@ public class AccountingDAO {
                 if (rowsAffected == 0) {
                     throw new SQLException("Insert failed, no rows affected.");
                 }
-                System.out.println("Transaction recorded in database: " + transaction.getId());
+                System.out.println("Transaction recorded in database: " + transaction.getId() + " - Type: " + 
+                                  transaction.getType() + " - Amount: " + transaction.getAmount());
             }
             
-            // Create a journal entry for this transaction
-            if (transaction.getType().startsWith("venta")) {
-                createSaleJournalEntry(conn, transaction);
-                System.out.println("Sale journal entry created for transaction: " + transaction.getId());
-            } else if (transaction.getType().contains("reversal")) {
-                createReversalJournalEntry(conn, transaction);
-                System.out.println("Reversal journal entry created for transaction: " + transaction.getId());
+            // Create a journal entry for this transaction - add debugging
+            try {
+                if (transaction.getType().equals("venta") || transaction.getType().startsWith("venta")) {
+                    createSaleJournalEntry(conn, transaction);
+                    System.out.println("Sale journal entry created for transaction: " + transaction.getId());
+                } else if (transaction.getType().equals("compra") || transaction.getType().startsWith("compra")) {
+                    createPurchaseJournalEntry(conn, transaction);
+                    System.out.println("Purchase journal entry created for transaction: " + transaction.getId());
+                } else if (transaction.getType().contains("reversal")) {
+                    createReversalJournalEntry(conn, transaction);
+                    System.out.println("Reversal journal entry created for transaction: " + transaction.getId());
+                }
+            } catch (SQLException e) {
+                System.err.println("Error creating journal entry: " + e.getMessage());
+                e.printStackTrace();
+                // Continue processing - don't fail the whole transaction for journal entry issues
             }
             
             conn.commit();
@@ -142,6 +152,61 @@ public class AccountingDAO {
         
         // Credit Sales Revenue
         insertJournalLineItem(conn, journalEntryId, salesRevenueAccountId, "Sales revenue", 0, amount);
+    }
+    
+    /**
+     * Creates a journal entry for a purchase transaction.
+     * 
+     * @param conn Database connection
+     * @param transaction The purchase transaction
+     * @throws SQLException if an error occurs
+     */
+    private void createPurchaseJournalEntry(Connection conn, Transaction transaction) throws SQLException {
+        // Insert journal entry
+        String journalSql = "INSERT INTO journal_entries (entry_date, reference_number, description, is_posted, created_by) " +
+                          "VALUES (?, ?, ?, TRUE, ?)";
+        
+        int journalEntryId;
+        try (PreparedStatement stmt = conn.prepareStatement(journalSql, Statement.RETURN_GENERATED_KEYS)) {
+            LocalDateTime timestamp = transaction.getTimestamp();
+            Date entryDate = Date.valueOf(timestamp.toLocalDate());
+            
+            stmt.setDate(1, entryDate);
+            stmt.setString(2, transaction.getId());
+            stmt.setString(3, "Compra registrada: " + transaction.getDescription());
+            stmt.setString(4, "Sistema");
+            
+            stmt.executeUpdate();
+            
+            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    journalEntryId = generatedKeys.getInt(1);
+                } else {
+                    throw new SQLException("Creating journal entry failed, no ID obtained.");
+                }
+            }
+        }
+        
+        // Link transaction to journal entry
+        String linkSql = "UPDATE accounting_transactions SET journal_entry_id = ? WHERE transaction_id = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(linkSql)) {
+            stmt.setInt(1, journalEntryId);
+            stmt.setString(2, transaction.getId());
+            stmt.executeUpdate();
+        }
+        
+        // Insert journal line items (debits and credits)
+        double amount = Math.abs(transaction.getAmount()); // Ensure positive amount for accounting entries
+        
+        // Get account IDs by their account codes instead of using hardcoded IDs
+        int inventoryAccountId = getAccountIdByCode(conn, "1300");  // Inventario
+        int accountsPayableId = getAccountIdByCode(conn, "2000");   // Cuentas por Pagar
+        
+        // Debit Inventory Account
+        insertJournalLineItem(conn, journalEntryId, inventoryAccountId, "Compra de inventario", amount, 0);
+        
+        // Credit Accounts Payable
+        insertJournalLineItem(conn, journalEntryId, accountsPayableId, "Cuenta por pagar a proveedor", 0, amount);
     }
     
     /**
@@ -307,6 +372,7 @@ public class AccountingDAO {
 
     /**
      * Retrieves the account ID for a given account code.
+     * If account doesn't exist, creates it with default values.
      *
      * @param conn Database connection
      * @param accountCode The account code to look up
@@ -321,7 +387,151 @@ public class AccountingDAO {
                 if (rs.next()) {
                     return rs.getInt("id");
                 }
-                throw new SQLException("Account with code '" + accountCode + "' not found in accounts table");
+                
+                // Account not found, create it with default values based on the code
+                System.out.println("Account with code '" + accountCode + "' not found. Creating it automatically.");
+                
+                // Determine account type and name based on the prefix
+                String accountType;
+                String accountName;
+                
+                if (accountCode.startsWith("1")) {
+                    accountType = "ASSET";
+                    accountName = "Activo " + accountCode;
+                } else if (accountCode.startsWith("2")) {
+                    accountType = "LIABILITY";
+                    accountName = "Pasivo " + accountCode;
+                } else if (accountCode.startsWith("3")) {
+                    accountType = "EQUITY";
+                    accountName = "Patrimonio " + accountCode;
+                } else if (accountCode.startsWith("4")) {
+                    accountType = "REVENUE";
+                    accountName = "Ingreso " + accountCode;
+                } else if (accountCode.startsWith("5") || accountCode.startsWith("6")) {
+                    accountType = "EXPENSE";
+                    accountName = "Gasto " + accountCode;
+                    
+                    // Specific handling for common expense accounts
+                    if (accountCode.equals("6100")) accountName = "Alquileres";
+                    if (accountCode.equals("6200")) accountName = "Servicios Públicos";
+                    if (accountCode.equals("6300")) accountName = "Salarios";
+                    if (accountCode.equals("6400")) accountName = "Impuestos";
+                    if (accountCode.equals("6500")) accountName = "Mantenimiento";
+                    if (accountCode.equals("6600")) accountName = "Papelería";
+                    if (accountCode.equals("6700")) accountName = "Marketing";
+                    if (accountCode.equals("6800")) accountName = "Transporte";
+                    if (accountCode.equals("6900")) accountName = "Bancarios";
+                } else {
+                    accountType = "EXPENSE";  // Default to expense
+                    accountName = "Cuenta " + accountCode;
+                }
+                
+                // Create the account
+                String insertSql = "INSERT INTO accounts (account_code, name, description, account_type) VALUES (?, ?, ?, ?)";
+                try (PreparedStatement insertStmt = conn.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS)) {
+                    insertStmt.setString(1, accountCode);
+                    insertStmt.setString(2, accountName);
+                    insertStmt.setString(3, "Cuenta creada automáticamente");
+                    insertStmt.setString(4, accountType);
+                    
+                    int affectedRows = insertStmt.executeUpdate();
+                    if (affectedRows == 0) {
+                        throw new SQLException("Creating account failed, no rows affected.");
+                    }
+                    
+                    try (ResultSet generatedKeys = insertStmt.getGeneratedKeys()) {
+                        if (generatedKeys.next()) {
+                            return generatedKeys.getInt(1);
+                        } else {
+                            throw new SQLException("Creating account failed, no ID obtained.");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Ensures that all required default accounts exist in the database.
+     * This should be called during application startup.
+     */
+    public void ensureDefaultAccountsExist() {
+        Connection conn = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            conn.setAutoCommit(false);
+            
+            // Define default accounts with their codes and types
+            String[][] defaultAccounts = {
+                {"1000", "Caja", "Efectivo disponible", "ASSET"},
+                {"1100", "Bancos", "Fondos en cuentas bancarias", "ASSET"},
+                {"1200", "Cuentas por Cobrar", "Créditos a clientes", "ASSET"},
+                {"1300", "Inventario", "Productos disponibles para venta", "ASSET"},
+                {"2000", "Cuentas por Pagar", "Deudas a proveedores", "LIABILITY"},
+                {"2100", "Impuestos por Pagar", "Impuestos pendientes de pago", "LIABILITY"},
+                {"3000", "Capital", "Capital de la empresa", "EQUITY"},
+                {"4000", "Ventas", "Ingresos por ventas", "REVENUE"},
+                {"5000", "Costo de Ventas", "Costo de productos vendidos", "EXPENSE"},
+                {"6000", "Gastos Operativos", "Gastos generales de operación", "EXPENSE"},
+                {"6100", "Alquileres", "Pagos por alquiler de local", "EXPENSE"},
+                {"6200", "Servicios Públicos", "Electricidad, agua, gas, internet, etc.", "EXPENSE"},
+                {"6300", "Salarios", "Pagos a empleados", "EXPENSE"},
+                {"6400", "Impuestos", "Pagos de impuestos diversos", "EXPENSE"},
+                {"6500", "Mantenimiento", "Reparaciones y mantenimiento de local y equipos", "EXPENSE"},
+                {"6600", "Papelería", "Gastos de oficina y papelería", "EXPENSE"},
+                {"6700", "Marketing", "Gastos de publicidad y marketing", "EXPENSE"},
+                {"6800", "Transporte", "Gastos de transporte y logística", "EXPENSE"},
+                {"6900", "Bancarios", "Comisiones bancarias y financieras", "EXPENSE"}
+            };
+            
+            // Insert or update each account
+            for (String[] account : defaultAccounts) {
+                ensureAccountExists(conn, account[0], account[1], account[2], account[3]);
+            }
+            
+            conn.commit();
+            System.out.println("Default accounts verified/created successfully");
+            
+        } catch (SQLException e) {
+            try {
+                if (conn != null) conn.rollback();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+            System.err.println("Error ensuring default accounts: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            try {
+                if (conn != null) {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * Ensures a specific account exists, creating it if necessary
+     */
+    private void ensureAccountExists(Connection conn, String code, String name, String description, String type) throws SQLException {
+        String checkSql = "SELECT id FROM accounts WHERE account_code = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(checkSql)) {
+            stmt.setString(1, code);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next()) {
+                    // Account doesn't exist, create it
+                    String insertSql = "INSERT INTO accounts (account_code, name, description, account_type) VALUES (?, ?, ?, ?)";
+                    try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+                        insertStmt.setString(1, code);
+                        insertStmt.setString(2, name);
+                        insertStmt.setString(3, description);
+                        insertStmt.setString(4, type);
+                        insertStmt.executeUpdate();
+                        System.out.println("Created new account: " + code + " - " + name);
+                    }
+                }
             }
         }
     }
@@ -694,20 +904,37 @@ public class AccountingDAO {
     }
 
     /**
+     * Inserts a new transaction into the database
+     * 
+     * @param transaction The transaction to insert
+     * @return true if the insertion was successful, false otherwise
+     */
+    public boolean insertTransaction(Transaction transaction) {
+        // If transaction already has an ID and exists in the database, just return true
+        if (transaction.getId() != null && transactionExists(transaction.getId())) {
+            System.out.println("Transaction already exists in database, skipping: " + transaction.getId());
+            return true;
+        }
+        
+        // Otherwise, we're adding a new transaction, so route through the recordTransaction method
+        return recordTransaction(transaction);
+    }
+
+    /**
      * Get all transaction categories from the database
      * 
      * @return List of distinct transaction categories
      */
     public List<String> getAllCategories() {
         List<String> categories = new ArrayList<>();
-        String sql = "SELECT DISTINCT type FROM accounting_transactions WHERE type IS NOT NULL ORDER BY type";
+        String sql = "SELECT DISTINCT transaction_type FROM accounting_transactions WHERE transaction_type IS NOT NULL ORDER BY transaction_type";
         
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql);
              ResultSet rs = stmt.executeQuery()) {
             
             while (rs.next()) {
-                categories.add(rs.getString("type"));
+                categories.add(rs.getString("transaction_type"));
             }
             
             // If no categories found, add some defaults

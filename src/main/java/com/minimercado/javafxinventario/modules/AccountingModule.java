@@ -46,6 +46,11 @@ public class AccountingModule {
                 transaction.setTimestamp(LocalDateTime.now());
             }
             
+            // Generate ID if not present
+            if (transaction.getId() == null || transaction.getId().isEmpty()) {
+                transaction.setId(generateTransactionId(transaction.getType()));
+            }
+            
             // Add to in-memory transactions list
             transactions.add(transaction);
             
@@ -61,11 +66,10 @@ public class AccountingModule {
                        "gasto".equalsIgnoreCase(transaction.getType()) ||
                        "compra".equalsIgnoreCase(transaction.getType())) {
                 addAuditEntry(transaction.getType() + " registrado: " + 
-                             transaction.getAmount() + " - " + transaction.getDescription());
+                             Math.abs(transaction.getAmount()) + " - " + transaction.getDescription());
             }
             
             // Add the transaction to the database
-            // Use recordTransaction instead of addTransaction
             boolean success = accountingDAO.recordTransaction(transaction);
             
             if (success) {
@@ -87,8 +91,21 @@ public class AccountingModule {
         } catch (Exception e) {
             System.err.println("Error recording transaction: " + e.getMessage());
             e.printStackTrace();
+            addAuditEntry("ERROR: Excepción al registrar transacción: " + e.getMessage());
             return false;
         }
+    }
+    
+    /**
+     * Generate a unique transaction ID
+     * @param type Type of transaction
+     * @return A unique transaction ID
+     */
+    private String generateTransactionId(String type) {
+        String prefix = type.substring(0, Math.min(3, type.length())).toUpperCase();
+        long timestamp = System.currentTimeMillis();
+        int random = (int)(Math.random() * 1000);
+        return prefix + "-" + timestamp + "-" + random;
     }
     
     public List<Transaction> getTransactions() {
@@ -375,6 +392,28 @@ public class AccountingModule {
     private void notifyFinancialDataUpdated() {
         for (FinancialUpdateListener listener : updateListeners) {
             listener.onFinancialDataUpdated();
+        }
+    }
+
+    /**
+     * Add a transaction to the module and notify listeners
+     * 
+     * @param transaction The transaction to add
+     */
+    public void addTransaction(Transaction transaction) {
+        if (transaction == null) return;
+        
+        // Add to transactions list if not already present
+        if (!transactionExists(transaction)) {
+            transactions.add(transaction);
+            
+            // Log the transaction
+            addAuditEntry("Transaction added: " + transaction.getType() + 
+                         " - Amount: " + transaction.getAmount() + 
+                         " - Description: " + transaction.getDescription());
+            
+            // Notify listeners about the update
+            notifyFinancialDataUpdated();
         }
     }
 }

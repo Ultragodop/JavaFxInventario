@@ -1,0 +1,39 @@
+/* Tema oscuro para la aplicación */
+
+.root {
+    -fx-primary: #90caf9;
+    -fx-primary-light: #c3fdff;
+    -fx-primary-dark: #5d99c6;
+    
+    -fx-background-color: #121212;
+    -fx-text-color: #e0e0e0;
+    -fx-secondary-text-color: #b0b0b0;
+    
+    -fx-sidebar-color: #1e1e1e;
+    -fx-sidebar-hover: #2c2c2c;
+    
+    -fx-border-color: #333333;
+    -fx-shadow-color: rgba(0, 0, 0, 0.3);
+    
+    -fx-success-color: #4caf50;
+    -fx-warning-color: #ffeb3b;
+    -fx-error-color: #f44336;
+}
+
+/* Estilos específicos para tema oscuro */
+.sidebar {
+    -fx-border-color: transparent -fx-border-color transparent transparent;
+}
+
+.menu-section > .title {
+    -fx-text-fill: -fx-primary-light;
+}
+
+.app-title {
+    -fx-text-fill: -fx-primary-light;
+}
+
+.menu-button:hover .ikonli-font-icon, 
+.submenu-button:hover .ikonli-font-icon {
+    -fx-icon-color: -fx-primary-light;
+}

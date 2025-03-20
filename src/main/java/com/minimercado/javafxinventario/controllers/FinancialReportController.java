@@ -13,8 +13,10 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.geometry.Insets;
 import javafx.scene.chart.*;
 import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
 import javafx.scene.paint.Color;
 import javafx.stage.FileChooser;
 import javafx.util.StringConverter;
@@ -33,7 +35,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-public class FinancialReportController implements Initializable {
+public class FinancialReportController implements Initializable, FinancialUpdateListener {
 
     private static final Logger logger = Logger.getLogger(FinancialReportController.class.getName());
     public Button refreshButton;
@@ -206,11 +208,23 @@ public class FinancialReportController implements Initializable {
             weeklyTransactions = accountingModule.getTransactionsByPeriod("semanal");
             monthlyTransactions = accountingModule.getTransactionsByPeriod("mensual");
             
-            // Calculate financial summaries
-            // Use public methods instead of accessing private calculateTotalByType
+            // Get all transactions to analyze
+            List<Transaction> allTransactions = accountingModule.getTransactions();
+            
+            // Filter and calculate purchase transactions specifically
+            List<Transaction> purchaseTransactions = allTransactions.stream()
+                .filter(tx -> "compra".equalsIgnoreCase(tx.getType()))
+                .collect(Collectors.toList());
+            
+            // Calculate financial summaries with special attention to purchases
             totalSales = calculateTotalForType("venta");
-            totalPurchases = calculateTotalForType("compra");
-            totalExpenses = calculateTotalForType("gasto");
+            
+            // Use Math.abs to ensure we get positive values for display purposes
+            totalPurchases = Math.abs(purchaseTransactions.stream()
+                .mapToDouble(Transaction::getAmount)
+                .sum());
+                
+            totalExpenses = Math.abs(calculateTotalForType("gasto"));
             
             // Calculate profits
             grossProfit = totalSales - totalPurchases;
@@ -218,11 +232,34 @@ public class FinancialReportController implements Initializable {
             
             // Update transaction tables if they exist
             if (transactionsTable != null) {
-                transactionsTable.setItems(FXCollections.observableArrayList(
-                    periodComboBox != null && periodComboBox.getValue().equals("Todos") ? 
-                        accountingModule.getTransactions() : 
-                        getCurrentPeriodTransactions()
-                ));
+                // Get transactions according to current period filter
+                List<Transaction> currentPeriodTransactions;
+                
+                if (periodComboBox != null && periodComboBox.getValue() != null) {
+                    if (periodComboBox.getValue().equals("Todos")) {
+                        currentPeriodTransactions = allTransactions;
+                    } else {
+                        currentPeriodTransactions = getCurrentPeriodTransactions();
+                    }
+                } else {
+                    currentPeriodTransactions = monthlyTransactions; // Default to monthly
+                }
+                
+                transactionsTable.setItems(FXCollections.observableArrayList(currentPeriodTransactions));
+                
+                // Count and display purchase transactions
+                long purchaseCount = currentPeriodTransactions.stream()
+                    .filter(tx -> "compra".equalsIgnoreCase(tx.getType()))
+                    .count();
+                    
+                if (statusLabel != null) {
+                    statusLabel.setText(String.format(
+                        "Mostrando %d transacciones (%d compras) - Última actualización: %s",
+                        currentPeriodTransactions.size(),
+                        purchaseCount,
+                        LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
+                    ));
+                }
             }
             
             // Update UI components with the new data
@@ -315,16 +352,116 @@ public class FinancialReportController implements Initializable {
      */
     private void updateExpenseBreakdownChart() {
         if (expenseBreakdownChart != null) {
-            // Implementation for expense breakdown chart
+            // Clear existing data
             expenseBreakdownChart.getData().clear();
             
-            // Example expense categories
-            expenseBreakdownChart.getData().addAll(
-                new PieChart.Data("Compras", Math.abs(totalPurchases)),
-                new PieChart.Data("Salarios", Math.abs(totalExpenses * 0.6)), // Example proportion
-                new PieChart.Data("Servicios", Math.abs(totalExpenses * 0.3)), // Example proportion
-                new PieChart.Data("Otros", Math.abs(totalExpenses * 0.1))  // Example proportion
-            );
+            // Get all transactions
+            AccountingModule accountingModule = AccountingModule.getInstance();
+            List<Transaction> allTransactions = accountingModule.getTransactions();
+            
+            // Filter for period if needed
+            LocalDate startDate = startDatePicker.getValue();
+            LocalDate endDate = endDatePicker.getValue();
+            
+            if (startDate != null && endDate != null) {
+                allTransactions = allTransactions.stream()
+                    .filter(tx -> {
+                        if (tx.getTimestamp() == null) return false;
+                        LocalDate txDate = tx.getTimestamp().toLocalDate();
+                        return !txDate.isBefore(startDate) && !txDate.isAfter(endDate);
+                    })
+                    .collect(Collectors.toList());
+            }
+            
+            // Analyze purchase transactions in detail - try to extract suppliers or categories
+            Map<String, Double> purchasesBySupplier = new HashMap<>();
+            
+            // Process purchase transactions
+            Map<String, Double> finalPurchasesBySupplier = purchasesBySupplier;
+            allTransactions.stream()
+                .filter(tx -> "compra".equalsIgnoreCase(tx.getType()))
+                .forEach(tx -> {
+                    String description = tx.getDescription();
+                    String supplier = "Sin proveedor";
+                    
+                    // Try to extract supplier name from description
+                    if (description != null && description.contains(" - ")) {
+                        try {
+                            int start = description.indexOf(" - ") + 3;
+                            int end = description.indexOf(" - ", start);
+                            if (end == -1) end = description.length();
+                            supplier = description.substring(start, end).trim();
+                        } catch (Exception e) {
+                            // If parsing fails, use default
+                        }
+                    }
+                    
+                    // Add to supplier map
+                    double amount = Math.abs(tx.getAmount());
+                    finalPurchasesBySupplier.put(
+                        supplier, 
+                        finalPurchasesBySupplier.getOrDefault(supplier, 0.0) + amount
+                    );
+                });
+            
+            // Process salary/payroll transactions
+            double totalSalaries = allTransactions.stream()
+                .filter(tx -> "salario".equalsIgnoreCase(tx.getType()))
+                .mapToDouble(tx -> Math.abs(tx.getAmount()))
+                .sum();
+            
+            // Process other expenses
+            double totalOtherExpenses = allTransactions.stream()
+                .filter(tx -> "gasto".equalsIgnoreCase(tx.getType()) || "egreso".equalsIgnoreCase(tx.getType()))
+                .mapToDouble(tx -> Math.abs(tx.getAmount()))
+                .sum();
+            
+            // If we have too many suppliers, combine small ones
+            final int MAX_SUPPLIERS = 4; // Max suppliers to show individually
+            if (purchasesBySupplier.size() > MAX_SUPPLIERS) {
+                // Sort suppliers by amount
+                List<Map.Entry<String, Double>> sortedSuppliers = new ArrayList<>(purchasesBySupplier.entrySet());
+                sortedSuppliers.sort(Map.Entry.<String, Double>comparingByValue().reversed());
+                
+                // Take top suppliers and combine the rest
+                double otherSuppliers = 0.0;
+                for (int i = MAX_SUPPLIERS; i < sortedSuppliers.size(); i++) {
+                    otherSuppliers += sortedSuppliers.get(i).getValue();
+                }
+                
+                // Create new map with top suppliers and "Otros proveedores"
+                Map<String, Double> topSuppliers = new HashMap<>();
+                for (int i = 0; i < Math.min(MAX_SUPPLIERS, sortedSuppliers.size()); i++) {
+                    Map.Entry<String, Double> entry = sortedSuppliers.get(i);
+                    topSuppliers.put(entry.getKey(), entry.getValue());
+                }
+                
+                if (otherSuppliers > 0) {
+                    topSuppliers.put("Otros proveedores", otherSuppliers);
+                }
+                
+                purchasesBySupplier = topSuppliers;
+            }
+            
+            // Add purchase data to chart
+            for (Map.Entry<String, Double> entry : purchasesBySupplier.entrySet()) {
+                if (entry.getValue() > 0) {
+                    expenseBreakdownChart.getData().add(
+                        new PieChart.Data("Compra: " + entry.getKey(), entry.getValue()));
+                }
+            }
+            
+            // Add salaries and other expenses
+            if (totalSalaries > 0) {
+                expenseBreakdownChart.getData().add(new PieChart.Data("Salarios", totalSalaries));
+            }
+            
+            if (totalOtherExpenses > 0) {
+                expenseBreakdownChart.getData().add(new PieChart.Data("Otros Gastos", totalOtherExpenses));
+            }
+            
+            // Add tooltips and hover effects
+            addTooltipsToPieChart(expenseBreakdownChart);
         }
     }
     
@@ -627,9 +764,9 @@ public class FinancialReportController implements Initializable {
     }
 
     private void updateCharts() {
-        updateCashFlowChart();
-        updateCategoryCharts();
-        updateTrendChart("month");
+        updateIncomeExpenseChart();
+        updateProfitTrendChart();
+        updateExpenseBreakdownChart();
     }
 
     private void updateTransactionTable() {
@@ -1170,5 +1307,145 @@ public class FinancialReportController implements Initializable {
     private void generateExcelReport(File file) {
         // This is a placeholder. In a real implementation, you would use Apache POI
         statusLabel.setText("Funcionalidad de exportación a Excel en desarrollo");
+    }
+    
+    /**
+     * Handle a specific request to show purchase transactions only
+     */
+    @FXML
+    private void handleShowPurchaseTransactions() {
+        try {
+            // Set type filter to show just purchases
+            if (transactionTypeComboBox != null) {
+                transactionTypeComboBox.setValue("Compras");
+            }
+            
+            // Filter transactions for purchases
+            AccountingModule accountingModule = AccountingModule.getInstance();
+            List<Transaction> purchaseTransactions = accountingModule.getTransactions().stream()
+                .filter(tx -> "compra".equalsIgnoreCase(tx.getType()))
+                .collect(Collectors.toList());
+                
+            // Update table
+            if (transactionsTable != null) {
+                transactionsTable.setItems(FXCollections.observableArrayList(purchaseTransactions));
+                
+                if (statusLabel != null) {
+                    statusLabel.setText("Mostrando " + purchaseTransactions.size() + " transacciones de compra");
+                }
+            }
+        } catch (Exception e) {
+            showError("Error", "No se pudieron cargar las transacciones de compra: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Add a new button to create transactions directly from the financial report view
+     */
+    @FXML
+    private void handleCreateNewTransaction() {
+        try {
+            // Create a dialog to input transaction details
+            Dialog<Transaction> dialog = new Dialog<>();
+            dialog.setTitle("Nueva Transacción");
+            dialog.setHeaderText("Ingrese los detalles de la transacción");
+            
+            // Set the button types
+            ButtonType saveButtonType = new ButtonType("Guardar", ButtonBar.ButtonData.OK_DONE);
+            dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
+            
+            // Create the form fields
+            GridPane grid = new GridPane();
+            grid.setHgap(10);
+            grid.setVgap(10);
+            grid.setPadding(new Insets(20, 150, 10, 10));
+            
+            ComboBox<String> typeCombo = new ComboBox<>();
+            typeCombo.getItems().addAll("venta", "compra", "gasto", "ingreso");
+            typeCombo.setValue("venta");
+            
+            TextField amountField = new TextField();
+            amountField.setPromptText("Monto");
+            
+            TextField descriptionField = new TextField();
+            descriptionField.setPromptText("Descripción");
+            
+            grid.add(new Label("Tipo:"), 0, 0);
+            grid.add(typeCombo, 1, 0);
+            grid.add(new Label("Monto:"), 0, 1);
+            grid.add(amountField, 1, 1);
+            grid.add(new Label("Descripción:"), 0, 2);
+            grid.add(descriptionField, 1, 2);
+            
+            dialog.getDialogPane().setContent(grid);
+            
+            // Request focus on amount field by default
+            Platform.runLater(() -> amountField.requestFocus());
+            
+            // Convert the result to a transaction when the save button is clicked
+            dialog.setResultConverter(dialogButton -> {
+                if (dialogButton == saveButtonType) {
+                    try {
+                        String type = typeCombo.getValue();
+                        double amount = Double.parseDouble(amountField.getText().replace(",", "."));
+                        
+                        // Adjust amount sign based on transaction type
+                        if (type.equals("compra") || type.equals("gasto")) {
+                            amount = -Math.abs(amount); // Ensure it's negative
+                        } else {
+                            amount = Math.abs(amount); // Ensure it's positive
+                        }
+                        
+                        String description = descriptionField.getText();
+                        
+                        // Create and return the transaction
+                        Transaction transaction = new Transaction();
+                        transaction.setType(type);
+                        transaction.setAmount(amount);
+                        transaction.setDescription(description);
+                        transaction.setTimestamp(LocalDateTime.now());
+                        
+                        return transaction;
+                    } catch (NumberFormatException e) {
+                        // Show error alert
+                        Alert alert = new Alert(Alert.AlertType.ERROR);
+                        alert.setTitle("Error");
+                        alert.setHeaderText("Error en el formato del monto");
+                        alert.setContentText("Por favor ingrese un número válido para el monto.");
+                        alert.showAndWait();
+                        return null;
+                    }
+                }
+                return null;
+            });
+            
+            // Show the dialog and process the result
+            Optional<Transaction> result = dialog.showAndWait();
+            
+            result.ifPresent(transaction -> {
+                try {
+                    // Save the transaction using the AccountingModule
+                    AccountingModule accountingModule = AccountingModule.getInstance();
+                    accountingModule.addTransaction(transaction);
+                    
+                    // Also save to database if we have a DAO
+                    if (accountingDAO != null) {
+                        accountingDAO.insertTransaction(transaction);
+                    }
+                    
+                    statusLabel.setText("Transacción guardada correctamente");
+                    
+                    // The refreshFinancialData method will be called automatically 
+                    // via the onFinancialDataUpdated listener
+                } catch (Exception e) {
+                    statusLabel.setText("Error: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            });
+            
+        } catch (Exception e) {
+            statusLabel.setText("Error al crear transacción: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

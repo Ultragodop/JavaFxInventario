@@ -8,18 +8,18 @@ import java.util.List;
  * Representa un empleado en el sistema.
  */
 public class Employee {
-    private int id;
-    private String firstName;
-    private String lastName;
-    private String documentId;
-    private String position;
-    private double baseSalary;
-    private LocalDate hireDate;
-    private String contactPhone;
-    private String email;
-    private String address;
-    private boolean active = true;
-    private List<EmployeePayment> payments;
+    public int id;
+    public String firstName;
+    public String lastName;
+    public String documentId;
+    public String position;
+    public double baseSalary;
+    public LocalDate hireDate;
+    public String contactPhone;
+    public String email;
+    public String address;
+    public boolean active = true;
+    public List<EmployeePayment> payments;
 
     public Employee() {
         this.payments = new ArrayList<>();

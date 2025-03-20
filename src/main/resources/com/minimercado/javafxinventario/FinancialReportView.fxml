@@ -18,8 +18,9 @@
                      </font>
                   </Label>
                   <Region HBox.hgrow="ALWAYS" />
+                  <DatePicker fx:id="startDatePicker" promptText="Fecha inicio" />
+                  <DatePicker fx:id="endDatePicker" promptText="Fecha fin" />
                   <Button fx:id="refreshButton" mnemonicParsing="false" onAction="#handleRefreshReport" text="Actualizar" />
-                  <Button fx:id="exportButton" mnemonicParsing="false" onAction="#handleExportReport" text="Exportar" />
                   <MenuButton fx:id="exportOptionsButton" mnemonicParsing="false" text="Exportar">
                      <items>
                         <MenuItem mnemonicParsing="false" onAction="#handleExportToPDF" text="Exportar a PDF" />
@@ -35,14 +36,10 @@
             <HBox alignment="CENTER_LEFT" spacing="10.0">
                <children>
                   <Label text="Período:" />
-                  <DatePicker fx:id="startDatePicker" promptText="Fecha inicio" />
-                  <Label text="hasta" />
-                  <DatePicker fx:id="endDatePicker" promptText="Fecha fin" />
-                  <ComboBox fx:id="periodComboBox" prefWidth="150.0" promptText="Período predefinido" />
-                  <Button fx:id="applyDateButton" mnemonicParsing="false" onAction="#handleApplyDateFilter" text="Aplicar" />
+                  <ComboBox fx:id="periodComboBox" prefWidth="150.0" promptText="Seleccionar período" />
                </children>
                <padding>
-                  <Insets bottom="5.0" left="10.0" right="10.0" top="5.0" />
+                  <Insets left="10.0" />
                </padding>
             </HBox>
          </children>
@@ -53,267 +50,179 @@
          <tabs>
             <Tab text="Resumen">
                <content>
-                  <ScrollPane fitToHeight="true" fitToWidth="true">
-                     <content>
-                        <VBox spacing="20.0">
+                  <VBox spacing="15.0">
+                     <padding>
+                        <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+                     </padding>
+                     <children>
+                        <HBox spacing="20.0">
                            <children>
-                              <HBox spacing="20.0">
+                              <VBox styleClass="financial-summary-card" style="-fx-background-color: #f8f9fa; -fx-border-color: #dee2e6; -fx-border-radius: 5;">
+                                 <padding>
+                                    <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+                                 </padding>
                                  <children>
-                                    <VBox styleClass="summary-card" spacing="5.0" HBox.hgrow="ALWAYS">
-                                       <children>
-                                          <Label text="Balance Actual">
-                                             <font>
-                                                <Font name="System Bold" size="16.0" />
-                                             </font>
-                                          </Label>
-                                          <Label fx:id="currentBalanceLabel" styleClass="amount-label" text="">
-                                             <font>
-                                                <Font size="24.0" />
-                                             </font>
-                                          </Label>
-                                       </children>
-                                       <padding>
-                                          <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
-                                       </padding>
-                                    </VBox>
-                                    <VBox styleClass="summary-card" spacing="5.0" HBox.hgrow="ALWAYS">
-                                       <children>
-                                          <Label text="Ingresos">
-                                             <font>
-                                                <Font name="System Bold" size="16.0" />
-                                             </font>
-                                          </Label>
-                                          <HBox alignment="CENTER_LEFT" spacing="10.0">
-                                             <children>
-                                                <Label fx:id="totalIncomeLabel" styleClass="income-label" text="">
-                                                   <font>
-                                                      <Font size="24.0" />
-                                                   </font>
-                                                </Label>
-                                                <Label fx:id="incomeTrendLabel" styleClass="trend-label" text="" />
-                                             </children>
-                                          </HBox>
-                                       </children>
-                                       <padding>
-                                          <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
-                                       </padding>
-                                    </VBox>
-                                    <VBox styleClass="summary-card" spacing="5.0" HBox.hgrow="ALWAYS">
-                                       <children>
-                                          <Label text="Gastos">
-                                             <font>
-                                                <Font name="System Bold" size="16.0" />
-                                             </font>
-                                          </Label>
-                                          <HBox alignment="CENTER_LEFT" spacing="10.0">
-                                             <children>
-                                                <Label fx:id="totalExpensesLabel" styleClass="expense-label" text="">
-                                                   <font>
-                                                      <Font size="24.0" />
-                                                   </font>
-                                                </Label>
-                                                <Label fx:id="expensesTrendLabel" styleClass="trend-label" text="" />
-                                             </children>
-                                          </HBox>
-                                       </children>
-                                       <padding>
-                                          <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
-                                       </padding>
-                                    </VBox>
-                                    <VBox styleClass="summary-card" spacing="5.0" HBox.hgrow="ALWAYS">
-                                       <children>
-                                          <Label text="Beneficio Neto">
-                                             <font>
-                                                <Font name="System Bold" size="16.0" />
-                                             </font>
-                                          </Label>
-                                          <HBox alignment="CENTER_LEFT" spacing="10.0">
-                                             <children>
-                                                <Label fx:id="profitLabel" styleClass="profit-label">
-                                                   <font>
-                                                      <Font size="24.0" />
-                                                   </font>
-                                                </Label>
-                                                <Label fx:id="profitTrendLabel" styleClass="trend-label"/>
-                                             </children>
-                                          </HBox>
-                                       </children>
-                                       <padding>
-                                          <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
-                                       </padding>
-                                    </VBox>
+                                    <Label text="Ingresos Totales" style="-fx-font-weight: bold;" />
+                                    <Label fx:id="totalIncomeLabel" text="$0.00" style="-fx-font-size: 24; -fx-text-fill: #28a745;" />
                                  </children>
-                              </HBox>
-                              <Separator />
-                              <HBox spacing="20.0" VBox.vgrow="ALWAYS">
+                              </VBox>
+                              <VBox styleClass="financial-summary-card" style="-fx-background-color: #f8f9fa; -fx-border-color: #dee2e6; -fx-border-radius: 5;">
+                                 <padding>
+                                    <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+                                 </padding>
                                  <children>
-                                    <VBox HBox.hgrow="ALWAYS">
-                                       <children>
-                                          <Label text="Flujo de Efectivo">
-                                             <font>
-                                                <Font name="System Bold" size="14.0" />
-                                             </font>
-                                          </Label>
-                                          <LineChart fx:id="cashFlowChart" legendSide="RIGHT" title="Flujo mensual">
-                                            <xAxis>
-                                              <CategoryAxis side="BOTTOM" />
-                                            </xAxis>
-                                            <yAxis>
-                                              <NumberAxis side="LEFT" />
-                                            </yAxis>
-                                          </LineChart>
-                                       </children>
-                                    </VBox>
-                                    <VBox HBox.hgrow="ALWAYS">
-                                       <children>
-                                          <Label text="Distribución por Categoría">
-                                             <font>
-                                                <Font name="System Bold" size="14.0" />
-                                             </font>
-                                          </Label>
-                                          <TabPane tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS">
-                                             <tabs>
-                                                <Tab text="Ingresos">
-                                                   <content>
-                                                      <PieChart fx:id="incomeCategoryChart" title="Ingresos por categoría" />
-                                                   </content>
-                                                </Tab>
-                                                <Tab text="Gastos">
-                                                   <content>
-                                                      <PieChart fx:id="expenseCategoryChart" title="Gastos por categoría" />
-                                                   </content>
-                                                </Tab>
-                                             </tabs>
-                                          </TabPane>
-                                       </children>
-                                    </VBox>
-                                    <VBox HBox.hgrow="ALWAYS">
-                                       <children>
-                                          <Label text="Gastos por Categoría">
-                                             <font>
-                                                <Font name="System Bold" size="14.0" />
-                                             </font>
-                                          </Label>
-                                          <PieChart fx:id="expensesByCategoryChart" prefHeight="300.0" prefWidth="400.0"/>
-                                       </children>
-                                    </VBox>
+                                    <Label text="Gastos Totales" style="-fx-font-weight: bold;" />
+                                    <Label fx:id="totalExpensesLabel" text="$0.00" style="-fx-font-size: 24; -fx-text-fill: #dc3545;" />
                                  </children>
-                              </HBox>
+                              </VBox>
+                              <VBox styleClass="financial-summary-card" style="-fx-background-color: #f8f9fa; -fx-border-color: #dee2e6; -fx-border-radius: 5;">
+                                 <padding>
+                                    <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+                                 </padding>
+                                 <children>
+                                    <Label text="Ganancia Neta" style="-fx-font-weight: bold;" />
+                                    <Label fx:id="netIncomeLabel" text="$0.00" style="-fx-font-size: 24;" />
+                                 </children>
+                              </VBox>
                            </children>
-                           <padding>
-                              <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
-                           </padding>
-                        </VBox>
-                     </content>
-                  </ScrollPane>
+                        </HBox>
+                        <HBox spacing="20.0" VBox.vgrow="ALWAYS">
+                           <children>
+                              <VBox HBox.hgrow="ALWAYS">
+                                 <children>
+                                    <Label text="Distribución de Ingresos" style="-fx-font-weight: bold;" />
+                                    <PieChart fx:id="incomePieChart" legendVisible="true" labelsVisible="true" VBox.vgrow="ALWAYS" />
+                                 </children>
+                              </VBox>
+                              <VBox HBox.hgrow="ALWAYS">
+                                 <children>
+                                    <Label text="Distribución de Gastos" style="-fx-font-weight: bold;" />
+                                    <PieChart fx:id="expensesPieChart" legendVisible="true" labelsVisible="true" VBox.vgrow="ALWAYS" />
+                                 </children>
+                              </VBox>
+                           </children>
+                        </HBox>
+                     </children>
+                  </VBox>
                </content>
             </Tab>
             <Tab text="Análisis de Tendencias">
                <content>
-                  <ScrollPane fitToHeight="true" fitToWidth="true">
-                     <content>
-                        <VBox spacing="20.0">
-                           <padding>
-                              <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
-                           </padding>
-                           <children>
-                              <HBox alignment="CENTER_LEFT" spacing="10.0">
-                                 <children>
-                                    <Label text="Comparar con: " />
-                                    <ComboBox fx:id="trendPeriodComboBox" promptText="Período anterior" />
-                                    <Button fx:id="analyzeTrendsButton" mnemonicParsing="false" onAction="#handleAnalyzeTrends" text="Analizar tendencias" />
-                                 </children>
-                              </HBox>
-                              <LineChart fx:id="trendChart" title="Tendencias mensuales">
-                                <xAxis>
-                                  <CategoryAxis side="BOTTOM" />
-                                </xAxis>
-                                <yAxis>
-                                  <NumberAxis side="LEFT" />
-                                </yAxis>
-                              </LineChart>
-                              <HBox spacing="20.0">
-                                 <children>
-                                    <VBox spacing="10.0" HBox.hgrow="ALWAYS">
-                                       <children>
-                                          <Label text="Principales categorías de ingresos">
-                                             <font>
-                                                <Font name="System Bold" size="14.0" />
-                                             </font>
-                                          </Label>
-                                          <ListView fx:id="topIncomeCategoriesView" prefHeight="200.0" />
-                                       </children>
-                                    </VBox>
-                                    <VBox spacing="10.0" HBox.hgrow="ALWAYS">
-                                       <children>
-                                          <Label text="Principales categorías de gastos">
-                                             <font>
-                                                <Font name="System Bold" size="14.0" />
-                                             </font>
-                                          </Label>
-                                          <ListView fx:id="topExpenseCategoriesView" prefHeight="200.0" />
-                                       </children>
-                                    </VBox>
-                                 </children>
-                              </HBox>
-                           </children>
-                        </VBox>
-                     </content>
-                  </ScrollPane>
-               </content>
-            </Tab>
-            <Tab text="Balance General">
-               <content>
-                  <VBox spacing="10.0">
+                  <VBox spacing="15.0">
                      <padding>
-                        <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                        <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
                      </padding>
                      <children>
                         <HBox alignment="CENTER_LEFT" spacing="10.0">
                            <children>
-                              <Label text="Opciones:">
-                                 <font>
-                                    <Font name="System Bold" size="12.0" />
-                                 </font>
-                              </Label>
-                              <CheckBox fx:id="includeTransactionsCheckbox" mnemonicParsing="false" text="Incluir transacciones individuales" />
-                              <Button fx:id="generateBalanceSheetButton" mnemonicParsing="false" onAction="#handleGenerateBalanceSheet" text="Generar balance" />
+                              <Label text="Ver tendencia de:" />
+                              <ComboBox fx:id="trendTypeComboBox" prefWidth="150.0" promptText="Seleccionar tipo" />
+                              <Label text="Agrupar por:" />
+                              <ComboBox fx:id="trendGroupingComboBox" prefWidth="150.0" promptText="Seleccionar agrupación" />
+                              <Button fx:id="applyTrendButton" mnemonicParsing="false" onAction="#handleApplyTrendFilter" text="Aplicar" />
                            </children>
                         </HBox>
-                        <TextArea fx:id="balanceSheetTextArea" editable="false" prefHeight="600.0" prefWidth="200.0" styleClass="report-text-area" VBox.vgrow="ALWAYS">
-                           <font>
-                              <Font name="Courier New" size="12.0" />
-                           </font>
-                        </TextArea>
+                        <AreaChart fx:id="trendChart" legendVisible="true" title="Tendencia Financiera" VBox.vgrow="ALWAYS">
+                           <xAxis>
+                              <CategoryAxis label="Período" />
+                           </xAxis>
+                           <yAxis>
+                              <NumberAxis label="Monto ($)" />
+                           </yAxis>
+                        </AreaChart>
+                     </children>
+                  </VBox>
+               </content>
+            </Tab>
+            <Tab text="Balance General">
+               <content>
+                  <VBox spacing="15.0">
+                     <padding>
+                        <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+                     </padding>
+                     <children>
+                        <HBox spacing="20.0">
+                           <children>
+                              <VBox HBox.hgrow="ALWAYS">
+                                 <children>
+                                    <Label text="Activos" style="-fx-font-weight: bold;" />
+                                    <TableView fx:id="assetsTable" VBox.vgrow="ALWAYS">
+                                       <columns>
+                                          <TableColumn fx:id="assetNameColumn" text="Activo" prefWidth="200.0" />
+                                          <TableColumn fx:id="assetValueColumn" text="Valor" prefWidth="100.0" />
+                                       </columns>
+                                    </TableView>
+                                    <HBox alignment="CENTER_RIGHT" spacing="10.0">
+                                       <padding>
+                                          <Insets top="10.0" />
+                                       </padding>
+                                       <children>
+                                          <Label text="Total:" style="-fx-font-weight: bold;" />
+                                          <Label fx:id="totalAssetsLabel" text="$0.00" style="-fx-font-weight: bold;" />
+                                       </children>
+                                    </HBox>
+                                 </children>
+                              </VBox>
+                              <VBox HBox.hgrow="ALWAYS">
+                                 <children>
+                                    <Label text="Pasivos" style="-fx-font-weight: bold;" />
+                                    <TableView fx:id="liabilitiesTable" VBox.vgrow="ALWAYS">
+                                       <columns>
+                                          <TableColumn fx:id="liabilityNameColumn" text="Pasivo" prefWidth="200.0" />
+                                          <TableColumn fx:id="liabilityValueColumn" text="Valor" prefWidth="100.0" />
+                                       </columns>
+                                    </TableView>
+                                    <HBox alignment="CENTER_RIGHT" spacing="10.0">
+                                       <padding>
+                                          <Insets top="10.0" />
+                                       </padding>
+                                       <children>
+                                          <Label text="Total:" style="-fx-font-weight: bold;" />
+                                          <Label fx:id="totalLiabilitiesLabel" text="$0.00" style="-fx-font-weight: bold;" />
+                                       </children>
+                                    </HBox>
+                                 </children>
+                              </VBox>
+                           </children>
+                        </HBox>
+                        <Separator />
+                        <HBox alignment="CENTER_RIGHT" spacing="10.0">
+                           <children>
+                              <Label text="Patrimonio Total:" style="-fx-font-weight: bold; -fx-font-size: 14;" />
+                              <Label fx:id="totalEquityLabel" text="$0.00" style="-fx-font-weight: bold; -fx-font-size: 14;" />
+                           </children>
+                        </HBox>
+                        <PieChart fx:id="balancePieChart" legendVisible="true" labelsVisible="true" title="Composición del Balance" VBox.vgrow="ALWAYS" />
                      </children>
                   </VBox>
                </content>
             </Tab>
             <Tab text="Transacciones">
                <content>
-                  <VBox spacing="10.0">
+                  <VBox spacing="15.0">
                      <padding>
-                        <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+                        <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
                      </padding>
                      <children>
                         <HBox alignment="CENTER_LEFT" spacing="10.0">
                            <children>
-                              <Label text="Filtrar por categoría:" />
-                              <ComboBox fx:id="categoryFilterComboBox" prefWidth="150.0" promptText="Todas" />
                               <Label text="Tipo:" />
-                              <ComboBox fx:id="transactionTypeComboBox" prefWidth="150.0" promptText="Todos" />
-                              <Button fx:id="applyTransactionFilterButton" mnemonicParsing="false" onAction="#handleApplyTransactionFilter" text="Aplicar filtros" />
+                              <ComboBox fx:id="transactionTypeComboBox" prefWidth="150.0" promptText="Todos los tipos" />
+                              <Button fx:id="applyTransactionFilterButton" mnemonicParsing="false" onAction="#handleApplyTransactionFilter" text="Aplicar" />
+                              <Region HBox.hgrow="ALWAYS" />
+                              <TextField fx:id="searchTransactionField" promptText="Buscar transacción..." prefWidth="200.0" />
+                              <Button fx:id="searchTransactionButton" mnemonicParsing="false" onAction="#handleSearchTransaction" text="Buscar" />
                            </children>
                         </HBox>
-                        <TableView fx:id="transactionsTable" prefHeight="500.0" VBox.vgrow="ALWAYS">
-                          <columns>
-                            <TableColumn fx:id="dateColumn" prefWidth="100.0" text="Fecha" />
-                            <TableColumn fx:id="typeColumn" prefWidth="120.0" text="Tipo" />
-                            <TableColumn fx:id="categoryColumn" prefWidth="120.0" text="Categoría" />
-                            <TableColumn fx:id="descriptionColumn" prefWidth="300.0" text="Descripción" />
-                            <TableColumn fx:id="amountColumn" prefWidth="120.0" text="Monto" />
-                            <TableColumn fx:id="balanceColumn" prefWidth="120.0" text="Balance" />
-                          </columns>
+                        <TableView fx:id="transactionsTable" VBox.vgrow="ALWAYS">
+                           <columns>
+                              <TableColumn fx:id="transactionIdColumn" text="ID" prefWidth="60.0" />
+                              <TableColumn fx:id="transactionDateColumn" text="Fecha" prefWidth="100.0" />
+                              <TableColumn fx:id="transactionTypeColumn" text="Tipo" prefWidth="100.0" />
+                              <TableColumn fx:id="transactionDescriptionColumn" text="Descripción" prefWidth="300.0" />
+                              <TableColumn fx:id="transactionAmountColumn" text="Monto" prefWidth="100.0" />
+                              <TableColumn fx:id="transactionBalanceColumn" text="Balance" prefWidth="100.0" />
+                           </columns>
                         </TableView>
                      </children>
                   </VBox>
@@ -321,25 +230,36 @@
             </Tab>
             <Tab text="Balances">
                <content>
-                  <ScrollPane fitToHeight="true" fitToWidth="true">
-                     <content>
-                        <VBox spacing="20.0">
+                  <VBox spacing="15.0">
+                     <padding>
+                        <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+                     </padding>
+                     <children>
+                        <HBox alignment="CENTER_LEFT" spacing="10.0">
                            <children>
-                              <TableView fx:id="accountBalancesTable" VBox.vgrow="ALWAYS">
-                                 <columns>
-                                    <TableColumn fx:id="accountCodeColumn" text="Código" prefWidth="100.0"/>
-                                    <TableColumn fx:id="accountNameColumn" text="Nombre" prefWidth="300.0"/>
-                                    <TableColumn fx:id="accountTypeColumn" text="Tipo" prefWidth="150.0"/>
-                                    <TableColumn fx:id="accountBalanceColumn" text="Saldo" prefWidth="150.0"/>
-                                 </columns>
-                              </TableView>
+                              <Label text="Ver balance de:" />
+                              <ComboBox fx:id="accountComboBox" prefWidth="200.0" promptText="Seleccionar cuenta" />
+                              <Button fx:id="viewAccountButton" mnemonicParsing="false" onAction="#handleViewAccount" text="Ver Cuenta" />
                            </children>
-                           <padding>
-                              <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
-                           </padding>
-                        </VBox>
-                     </content>
-                  </ScrollPane>
+                        </HBox>
+                        <TableView fx:id="accountEntriesTable" VBox.vgrow="ALWAYS">
+                           <columns>
+                              <TableColumn fx:id="accountEntryDateColumn" text="Fecha" prefWidth="100.0" />
+                              <TableColumn fx:id="accountEntryRefColumn" text="Referencia" prefWidth="120.0" />
+                              <TableColumn fx:id="accountEntryDescriptionColumn" text="Descripción" prefWidth="300.0" />
+                              <TableColumn fx:id="accountEntryDebitColumn" text="Débito" prefWidth="100.0" />
+                              <TableColumn fx:id="accountEntryCreditColumn" text="Crédito" prefWidth="100.0" />
+                              <TableColumn fx:id="accountEntryBalanceColumn" text="Balance" prefWidth="100.0" />
+                           </columns>
+                        </TableView>
+                        <HBox alignment="CENTER_RIGHT" spacing="10.0">
+                           <children>
+                              <Label text="Balance Actual:" style="-fx-font-weight: bold;" />
+                              <Label fx:id="currentAccountBalanceLabel" text="$0.00" style="-fx-font-weight: bold;" />
+                           </children>
+                        </HBox>
+                     </children>
+                  </VBox>
                </content>
             </Tab>
          </tabs>

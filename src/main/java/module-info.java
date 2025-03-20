@@ -5,18 +5,18 @@ module JavaFxInventario {
     requires javafx.graphics;
     requires jdk.httpserver;
     requires spring.security.crypto;
-    
+    requires org.kordamp.ikonli.javafx;
+    requires org.kordamp.ikonli.fontawesome5;
+    requires org.kordamp.ikonli.core;
     // Database connection
     requires java.sql;
-requires org.apache.poi.ooxml;
+    requires org.apache.poi.ooxml;
     requires org.apache.poi.ooxml.schemas;
     
-
     // PDF generation
     requires itextpdf;
     
     // Excel export
-
     requires org.apache.poi.poi;
         
     // Other Java modules

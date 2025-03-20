@@ -15,6 +15,19 @@ public class Transaction {
     private String paymentMethod;
     private String additionalInfo;
     
+    /**
+     * Default constructor
+     */
+    public Transaction() {
+        this.id = UUID.randomUUID().toString();
+        this.type = "";
+        this.amount = 0.0;
+        this.description = "";
+        this.timestamp = LocalDateTime.now();
+        this.taxAmount = 0.0;
+        this.reversed = false;
+    }
+    
     public Transaction(String type, double amount, String description) {
         this.id = UUID.randomUUID().toString();
         this.type = type;

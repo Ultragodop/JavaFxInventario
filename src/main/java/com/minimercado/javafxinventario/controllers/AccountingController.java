@@ -2,6 +2,7 @@ package com.minimercado.javafxinventario.controllers;
 
 import com.minimercado.javafxinventario.DAO.AccountingDAO;
 import com.minimercado.javafxinventario.modules.AccountingEntry;
+import com.minimercado.javafxinventario.modules.AccountingModule;
 import com.minimercado.javafxinventario.modules.Transaction;
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleObjectProperty;
@@ -9,12 +10,18 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.geometry.Insets;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 import javafx.util.Callback;
 import javafx.util.StringConverter;
+import javafx.application.Platform;
 
 import java.net.URL;
 import java.time.LocalDate;
@@ -23,6 +30,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.ResourceBundle;
 
 public class AccountingController implements Initializable {
@@ -490,5 +498,146 @@ public class AccountingController implements Initializable {
         
         // Add an initial empty line item
         handleAddLineItem();
+    }
+
+    /**
+     * Handler for creating a new transaction
+     */
+    @FXML
+    private void handleCreateTransaction() {
+        try {
+            // Create a dialog to input transaction details
+            Dialog<Transaction> dialog = new Dialog<>();
+            dialog.setTitle("Nueva Transacción");
+            dialog.setHeaderText("Ingrese los detalles de la transacción");
+            
+            // Set the button types
+            ButtonType saveButtonType = new ButtonType("Guardar", ButtonBar.ButtonData.OK_DONE);
+            dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
+            
+            // Create the form fields
+            GridPane grid = new GridPane();
+            grid.setHgap(10);
+            grid.setVgap(10);
+            grid.setPadding(new Insets(20, 150, 10, 10));
+            
+            ComboBox<String> typeCombo = new ComboBox<>();
+            typeCombo.getItems().addAll("venta", "compra", "gasto", "ingreso");
+            typeCombo.setValue("venta");
+            
+            TextField amountField = new TextField();
+            amountField.setPromptText("Monto");
+            
+            TextField descriptionField = new TextField();
+            descriptionField.setPromptText("Descripción");
+            
+            grid.add(new Label("Tipo:"), 0, 0);
+            grid.add(typeCombo, 1, 0);
+            grid.add(new Label("Monto:"), 0, 1);
+            grid.add(amountField, 1, 1);
+            grid.add(new Label("Descripción:"), 0, 2);
+            grid.add(descriptionField, 1, 2);
+            
+            dialog.getDialogPane().setContent(grid);
+            
+            // Request focus on amount field by default
+            Platform.runLater(() -> amountField.requestFocus());
+            
+            // Convert the result to a transaction when the save button is clicked
+            dialog.setResultConverter(dialogButton -> {
+                if (dialogButton == saveButtonType) {
+                    try {
+                        String type = typeCombo.getValue();
+                        double amount = Double.parseDouble(amountField.getText().replace(",", "."));
+                        
+                        // Adjust amount sign based on transaction type
+                        if (type.equals("compra") || type.equals("gasto")) {
+                            amount = -Math.abs(amount); // Ensure it's negative
+                        } else {
+                            amount = Math.abs(amount); // Ensure it's positive
+                        }
+                        
+                        String description = descriptionField.getText();
+                        
+                        // Create and return the transaction
+                        Transaction transaction = new Transaction();
+                        transaction.setType(type);
+                        transaction.setAmount(amount);
+                        transaction.setDescription(description);
+                        transaction.setTimestamp(LocalDateTime.now());
+                        
+                        return transaction;
+                    } catch (NumberFormatException e) {
+                        // Show error alert
+                        Alert alert = new Alert(Alert.AlertType.ERROR);
+                        alert.setTitle("Error");
+                        alert.setHeaderText("Error en el formato del monto");
+                        alert.setContentText("Por favor ingrese un número válido para el monto.");
+                        alert.showAndWait();
+                        return null;
+                    }
+                }
+                return null;
+            });
+            
+            // Show the dialog and process the result
+            Optional<Transaction> result = dialog.showAndWait();
+            
+            result.ifPresent(transaction -> {
+                try {
+                    // Save the transaction to the database
+                    boolean saved = accountingDAO.insertTransaction(transaction);
+                    
+                    if (saved) {
+                        // Add to the list and refresh the view
+                        transactionsList.add(transaction);
+                        
+                        // Notify the AccountingModule about the new transaction
+                        AccountingModule.getInstance().addTransaction(transaction);
+                        
+                        // Show success message
+                        journalStatusLabel.setText("Transacción guardada correctamente");
+                        
+                        // Refresh data
+                        loadTransactions();
+                    } else {
+                        journalStatusLabel.setText("Error al guardar la transacción");
+                    }
+                } catch (Exception e) {
+                    journalStatusLabel.setText("Error: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            });
+            
+        } catch (Exception e) {
+            journalStatusLabel.setText("Error al crear transacción: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Navigate to financial reports view
+     */
+    @FXML
+    private void goToFinancialReports() {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/views/financial-reports-view.fxml"));
+            Parent root = loader.load();
+            Scene scene = new Scene(root);
+            Stage stage = (Stage) mainTabPane.getScene().getWindow();
+            stage.setScene(scene);
+            stage.show();
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert("Error", "No se pudo cargar la vista de reportes financieros: " + e.getMessage());
+        }
+    }
+    
+    private void showAlert(String title, String content) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(content);
+        alert.showAndWait();
     }
 }

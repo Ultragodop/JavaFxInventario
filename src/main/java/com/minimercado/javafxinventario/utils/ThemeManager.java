@@ -8,73 +8,73 @@ import java.util.Optional;
 import java.util.prefs.Preferences;
 
 /**
- * Utility class for managing application themes
+ * Gestiona los temas de la aplicación
  */
 public class ThemeManager {
     
-    private static final String DEFAULT_THEME = "/com/minimercado/javafxinventario/styles.css";
-    private static final String DARK_THEME = "/com/minimercado/javafxinventario/dark-theme.css";
+    private static final String LIGHT_THEME = "/com/minimercado/javafxinventario/theme-light.css";
+    private static final String DARK_THEME = "/com/minimercado/javafxinventario/theme-dark.css";
+    private static final String BASE_STYLES = "/com/minimercado/javafxinventario/styles.css";
     
     private static final String PREF_KEY = "theme";
-    private static final String LIGHT_THEME_NAME = "light";
-    private static final String DARK_THEME_NAME = "dark";
-    
     private static final Preferences prefs = Preferences.userNodeForPackage(ThemeManager.class);
     
     /**
-     * Applies the saved theme preference to a scene
-     * @param scene The scene to apply the theme to
+     * Establece el tema de la aplicación
+     * @param scene La escena a la que aplicar el tema
+     * @param themeName Nombre del tema ("light" o "dark")
      */
-    public static void applyTheme(Scene scene) {
-        String themeName = prefs.get(PREF_KEY, LIGHT_THEME_NAME);
+    public static void setTheme(Scene scene, String themeName) {
+        // Elimina temas anteriores
+        scene.getStylesheets().remove(LIGHT_THEME);
+        scene.getStylesheets().remove(DARK_THEME);
         
-        if (DARK_THEME_NAME.equals(themeName)) {
-            applyDarkTheme(scene);
-        } else {
-            applyLightTheme(scene);
+        // Asegura que los estilos base estén cargados
+        if (!scene.getStylesheets().contains(BASE_STYLES)) {
+            scene.getStylesheets().add(BASE_STYLES);
         }
+        
+        // Aplica el tema seleccionado
+        if ("dark".equalsIgnoreCase(themeName)) {
+            scene.getStylesheets().add(DARK_THEME);
+        } else {
+            scene.getStylesheets().add(LIGHT_THEME);
+        }
+        
+        prefs.put(PREF_KEY, themeName);
     }
     
     /**
-     * Applies the light theme to a scene
-     * @param scene The scene to apply the light theme to
-     */
-    public static void applyLightTheme(Scene scene) {
-        scene.getStylesheets().clear();
-        scene.getStylesheets().add(ThemeManager.class.getResource(DEFAULT_THEME).toExternalForm());
-        prefs.put(PREF_KEY, LIGHT_THEME_NAME);
-    }
-    
-    /**
-     * Applies the dark theme to a scene
-     * @param scene The scene to apply the dark theme to
-     */
-    public static void applyDarkTheme(Scene scene) {
-        scene.getStylesheets().clear();
-        scene.getStylesheets().add(ThemeManager.class.getResource(DARK_THEME).toExternalForm());
-        prefs.put(PREF_KEY, DARK_THEME_NAME);
-    }
-    
-    /**
-     * Toggles between light and dark themes
-     * @param scene The scene to toggle the theme for
-     * @return The name of the new theme
+     * Cambia entre temas claro y oscuro
+     * @param scene La escena a la que aplicar el tema
+     * @return El nombre del nuevo tema aplicado
      */
     public static String toggleTheme(Scene scene) {
-        String currentTheme = prefs.get(PREF_KEY, LIGHT_THEME_NAME);
-        
-        if (LIGHT_THEME_NAME.equals(currentTheme)) {
-            applyDarkTheme(scene);
-            return DARK_THEME_NAME;
-        } else {
-            applyLightTheme(scene);
-            return LIGHT_THEME_NAME;
-        }
+        boolean isDarkTheme = scene.getStylesheets().contains(DARK_THEME);
+        setTheme(scene, isDarkTheme ? "light" : "dark");
+        return isDarkTheme ? "light" : "dark";
     }
     
     /**
-     * Shows a theme selection dialog and applies the selected theme
-     * @param scene The scene to apply the theme to
+     * Aplica el tema predeterminado (claro)
+     * @param scene La escena a la que aplicar el tema
+     */
+    public static void applyDefaultTheme(Scene scene) {
+        setTheme(scene, "light");
+    }
+    
+    /**
+     * Aplica el tema guardado en las preferencias a una escena
+     * @param scene La escena a la que aplicar el tema
+     */
+    public static void applyTheme(Scene scene) {
+        String themeName = prefs.get(PREF_KEY, "light");
+        setTheme(scene, themeName);
+    }
+    
+    /**
+     * Muestra un diálogo de selección de tema y aplica el tema seleccionado
+     * @param scene La escena a la que aplicar el tema
      */
     public static void showThemeDialog(Scene scene) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
@@ -91,18 +91,18 @@ public class ThemeManager {
         
         if (result.isPresent()) {
             if (result.get() == lightButton) {
-                applyLightTheme(scene);
+                setTheme(scene, "light");
             } else if (result.get() == darkButton) {
-                applyDarkTheme(scene);
+                setTheme(scene, "dark");
             }
         }
     }
     
     /**
-     * Gets the current theme name
-     * @return The current theme name
+     * Obtiene el nombre del tema actual
+     * @return El nombre del tema actual
      */
     public static String getCurrentTheme() {
-        return prefs.get(PREF_KEY, LIGHT_THEME_NAME);
+        return prefs.get(PREF_KEY, "light");
     }
 }

@@ -16,7 +16,9 @@ public class PurchaseOrder {
     private Date expectedDate;
     private Date receivedDate;
     private String status; // PENDING, ORDERED, RECEIVED, CANCELED
+    private String paymentStatus; // UNPAID, PARTIALLY_PAID, PAID
     private double totalAmount;
+    private double totalPaid;
     private String notes;
     private List<Item> items;
     
@@ -26,6 +28,8 @@ public class PurchaseOrder {
     public PurchaseOrder() {
         this.orderDate = new Date();
         this.status = "PENDING";
+        this.paymentStatus = "UNPAID";
+        this.totalPaid = 0.0;
         this.items = new ArrayList<>();
     }
     
@@ -179,6 +183,40 @@ public class PurchaseOrder {
 
     public void setReceiveDate(Timestamp receiveDate) {
         this.receivedDate = receiveDate;
+    }
+
+    public String getPaymentStatus() {
+        return paymentStatus;
+    }
+    
+    public void setPaymentStatus(String paymentStatus) {
+        this.paymentStatus = paymentStatus;
+    }
+    
+    public double getTotalPaid() {
+        return totalPaid;
+    }
+    
+    public void setTotalPaid(double totalPaid) {
+        this.totalPaid = totalPaid;
+    }
+    
+    /**
+     * Gets the remaining balance to pay
+     * 
+     * @return Balance to pay
+     */
+    public double getBalance() {
+        return totalAmount - totalPaid;
+    }
+    
+    /**
+     * Checks if the order is fully paid
+     * 
+     * @return true if fully paid, false otherwise
+     */
+    public boolean isFullyPaid() {
+        return "PAID".equals(paymentStatus) || Math.abs(totalAmount - totalPaid) < 0.01;
     }
 
     /**

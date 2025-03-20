@@ -1081,6 +1081,46 @@ public class InventoryDAO {
     }
 
     /**
+     * Gets the price history for a product within a date range
+     * 
+     * @param productId The product barcode/ID
+     * @param startDate Start date for the range
+     * @param endDate End date for the range
+     * @return List of price changes
+     */
+    public List<PriceChange> getPriceHistory(String productId, Date startDate, Date endDate) {
+        List<PriceChange> history = new ArrayList<>();
+        String query = "SELECT * FROM price_history WHERE product_id = ? AND date BETWEEN ? AND ? ORDER BY date DESC";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            
+            stmt.setString(1, productId);
+            stmt.setTimestamp(2, new java.sql.Timestamp(startDate.getTime()));
+            stmt.setTimestamp(3, new java.sql.Timestamp(endDate.getTime()));
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    PriceChange change = new PriceChange();
+                    change.setId(rs.getInt("id"));
+                    change.setProductId(rs.getString("product_id"));
+                    change.setDate(rs.getTimestamp("date"));
+                    change.setPrice(rs.getDouble("price"));
+                    change.setChangePercent(rs.getDouble("change_percent"));
+                    change.setUser(rs.getString("user"));
+                    history.add(change);
+                }
+            }
+        } catch (SQLException e) {
+            logger.log(Level.SEVERE, "Error getting price history with date range", e);
+        }
+        
+        return history;
+    }
+
+
+
+    /**
      * Retrieves all purchase orders from the database
      *
      * @return List of purchase orders

@@ -4,11 +4,15 @@ import com.minimercado.javafxinventario.DAO.PurchasePaymentDAO;
 import com.minimercado.javafxinventario.modules.PurchaseOrder;
 import com.minimercado.javafxinventario.modules.PurchasePayment;
 import javafx.collections.FXCollections;
+import com.minimercado.javafxinventario.modules.*;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.stage.Stage;
+import javafx.application.Platform;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Date;
 
 /**
  * Controlador para el registro de pagos a órdenes de compra.
@@ -33,6 +37,15 @@ public class PurchaseOrderPaymentController {
     private PurchasePaymentDAO paymentDAO = new PurchasePaymentDAO();
     private Double paidAmount = 0.0;
 
+    // Añadir propiedades para el modo de recepción
+    private boolean receivingMode = false;
+    @FXML private DatePicker receiptDatePicker;
+    @FXML private TextField receiptNotesField;
+    @FXML private Label receiptStatusLabel;
+
+    // Agregar referencia al módulo contable
+    private final AccountingModule accountingModule = AccountingModule.getInstance();
+
     /**
      * Inicializa el controlador.
      */
@@ -51,7 +64,8 @@ public class PurchaseOrderPaymentController {
         completePaymentCheckBox.selectedProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal && purchaseOrder != null) {
                 // Si se marca como pago completo, establecer el monto pendiente
-                amountField.setText(String.valueOf(purchaseOrder.getTotalAmount() - paidAmount));
+                double pendingAmount = purchaseOrder.getTotalAmount() - paidAmount;
+                amountField.setText(String.format("%.2f", pendingAmount));
             }
         });
     }
@@ -75,12 +89,17 @@ public class PurchaseOrderPaymentController {
         balanceLabel.setText(String.format("$%.2f", balance));
         
         // Establecer valor por defecto para el campo de monto
-        amountField.setText(String.valueOf(balance));
+        amountField.setText(String.format("%.2f", balance));
         
         // Si el balance es cero, desactivar el formulario (ya está pagada)
         if (balance <= 0) {
             disableForm();
             statusLabel.setText("Esta orden ya ha sido pagada completamente");
+        }
+        
+        // Configurar fecha de recepción para modo recepción
+        if (receivingMode && receiptDatePicker != null) {
+            receiptDatePicker.setValue(LocalDate.now());
         }
     }
 
@@ -111,7 +130,7 @@ public class PurchaseOrderPaymentController {
     }
 
     /**
-     * Maneja el evento de registrar un pago.
+     * Maneja el evento de registrar un pago y opcionalmente recibir la orden
      */
     @FXML
     private void handleRegisterPayment() {
@@ -132,21 +151,136 @@ public class PurchaseOrderPaymentController {
             payment.setNotes(notesArea.getText().trim());
             payment.setCreatedBy("Usuario"); // Esto debería venir del sistema de autenticación
             
-            // Guardar el pago
-            boolean success = paymentDAO.insertPayment(payment);
+            boolean success = false;
+            
+            // Si estamos en modo de recepción, primero marcamos la orden como recibida
+            if (receivingMode) {
+                // Obtener datos de recepción
+                LocalDate receiptDate = receiptDatePicker.getValue();
+                String receiptNotes = receiptNotesField.getText().trim();
+                
+                // Convertir LocalDate a java.sql.Date correctamente
+                java.sql.Date sqlReceiptDate = java.sql.Date.valueOf(receiptDate);
+                
+                // Registrar la recepción
+                success = paymentDAO.receivePurchaseOrder(
+                    purchaseOrder.getId(),
+                    sqlReceiptDate,
+                    receiptNotes
+                );
+                
+                if (success) {
+                    // Si el monto de pago es mayor a cero, registrar el pago
+                    if (payment.getAmount() > 0) {
+                        success = paymentDAO.insertPayment(payment);
+                        
+                        // Registrar la transacción contable si el pago fue exitoso
+                        if (success) {
+                            // Registrar gasto en el módulo contable
+                            String description = String.format(
+                                "Pago Orden #%d - %s - %s - Ref: %s", 
+                                purchaseOrder.getId(), 
+                                purchaseOrder.getSupplierName(),
+                                payment.getPaymentMethod(),
+                                !payment.getReferenceNumber().isEmpty() ? payment.getReferenceNumber() : "N/A"
+                            );
+                            
+                            Transaction expense = new Transaction(
+                                "compra", 
+                                -payment.getAmount(), // Negativo porque es un egreso
+                                description
+                            );
+                            expense.setTimestamp(payment.getPaymentDate().atStartOfDay());
+                            
+                            // Registrar la transacción en el módulo contable
+                            boolean transactionSuccess = accountingModule.recordTransaction(expense);
+                            
+                            if (!transactionSuccess) {
+                                System.err.println("Error al registrar transacción contable para el pago.");
+                                statusLabel.setText("Advertencia: Pago registrado pero hubo un problema con el registro contable");
+                            }
+                        }
+                    } else {
+                        // Si el monto es cero, consideramos exitoso el proceso (solo recepción)
+                        success = true;
+                    }
+                }
+            } else {
+                // Modo normal de pago - solo registrar el pago
+                success = paymentDAO.insertPayment(payment);
+                
+                // Registrar la transacción contable si el pago fue exitoso
+                if (success) {
+                    String description = String.format(
+                        "Pago Orden #%d - %s - %s - Ref: %s", 
+                        purchaseOrder.getId(), 
+                        purchaseOrder.getSupplierName(),
+                        payment.getPaymentMethod(),
+                        !payment.getReferenceNumber().isEmpty() ? payment.getReferenceNumber() : "N/A"
+                    );
+                    
+                    Transaction expense = new Transaction(
+                        "compra", 
+                        -payment.getAmount(),  // Negativo porque es un egreso
+                        description
+                    );
+                    expense.setTimestamp(payment.getPaymentDate().atStartOfDay());
+                    
+                    // Registrar la transacción en el módulo contable
+                    boolean transactionSuccess = accountingModule.recordTransaction(expense);
+                    
+                    if (!transactionSuccess) {
+                        statusLabel.setText("Advertencia: Pago registrado pero no se pudo registrar en contabilidad");
+                    }
+                }
+            }
             
             if (success) {
-                showInformationMessage("Pago Registrado", 
-                        "El pago a la orden #" + purchaseOrder.getId() + " ha sido registrado correctamente.");
+                showInformationMessage(
+                    receivingMode ? 
+                        (payment.getAmount() > 0 ? "Orden Recibida y Pago Registrado" : "Orden Recibida") : 
+                        "Pago Registrado",
+                    receivingMode ? 
+                        (payment.getAmount() > 0 ?
+                            "La orden #" + purchaseOrder.getId() + " ha sido recibida y el pago registrado correctamente." :
+                            "La orden #" + purchaseOrder.getId() + " ha sido recibida correctamente.") :
+                        "El pago a la orden #" + purchaseOrder.getId() + " ha sido registrado correctamente."
+                );
                 closeWindow();
             } else {
-                statusLabel.setText("Error: No se pudo registrar el pago");
+                statusLabel.setText("Error: " + (receivingMode ? 
+                                    "No se pudo procesar la operación" : 
+                                    "No se pudo registrar el pago"));
             }
         } catch (NumberFormatException e) {
             statusLabel.setText("Error: El monto debe ser un número válido");
         } catch (Exception e) {
             statusLabel.setText("Error: " + e.getMessage());
+            e.printStackTrace();
         }
+    }
+
+    /**
+     * Activa el modo de recepción de orden
+     * @param receiving true para activar el modo de recepción, false para modo de pago simple
+     */
+    public void setReceivingMode(boolean receiving) {
+        this.receivingMode = receiving;
+        
+        // Este método se llama antes de que la escena se cargue completamente,
+        // así que necesitamos asegurarnos de que los controles existan
+        Platform.runLater(() -> {
+            if (receiptDatePicker != null) {
+                receiptDatePicker.setVisible(receiving);
+                receiptNotesField.setVisible(receiving);
+                receiptStatusLabel.setVisible(receiving);
+                
+                if (receiving) {
+                    // Configurar fecha actual para recepción
+                    receiptDatePicker.setValue(LocalDate.now());
+                }
+            }
+        });
     }
 
     /**

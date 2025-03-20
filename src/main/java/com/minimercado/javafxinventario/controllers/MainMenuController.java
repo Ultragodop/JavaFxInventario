@@ -3,232 +3,185 @@ package com.minimercado.javafxinventario.controllers;
 import com.minimercado.javafxinventario.utils.ThemeManager;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
-import javafx.scene.layout.StackPane;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Alert;
-import javafx.application.Platform;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.layout.StackPane;
+import javafx.stage.Stage;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 import java.io.IOException;
-import java.net.URL;
-import java.awt.Desktop;
-import java.io.File;
 
+/**
+ * Controlador para el menú principal de navegación
+ */
 public class MainMenuController {
+    @FXML private Label lblTituloSeccion;
     @FXML private StackPane contentPane;
+    @FXML private FontIcon themeIcon;
+    @FXML private Button btnSalir;
+    @FXML private Button btnInventario;
+    @FXML private Button btnVentas;
+    @FXML private Button btnCompras;
+    @FXML private Button btnGastos;
+    @FXML private Button btnReportesGen;
+    @FXML private Button btnReportesFin;
+    @FXML private Button btnEmpleados;
+    @FXML private Button btnConfiguracion;
+    @FXML private Button btnTema;
+    @FXML private Label lblUsuario;
     
+    private boolean isDarkTheme = false;
+    
+    /**
+     * Método de inicialización que se llama automáticamente después de cargar el FXML
+     */
     @FXML
     private void initialize() {
-        // No cargar ningún módulo por defecto para mostrar solo los botones
-    }
-    
-    // Map handleBuscarProductos to handleInventory for consistency
-    @FXML
-    private void handleInventory() {
-        loadModule("/com/minimercado/javafxinventario/inventory-view.fxml");
-    }
-    
-    // Keep for backward compatibility
-    @FXML
-    private void handleBuscarProductos() {
-        handleInventory();
-    }
-
-    // Map handleVentas to handlePOS for consistency
-    @FXML
-    private void handlePOS() {
-        loadModule("/com/minimercado/javafxinventario/venta-view.fxml");
-    }
-    
-    // Keep for backward compatibility
-    @FXML
-    private void handleVentas() {
-        handlePOS();
-    }
-
-    // Map handleContabilidad to handleFinancialReports for consistency
-    @FXML
-    private void handleFinancialReports() {
-        loadModule("/com/minimercado/javafxinventario/contabilidad-view.fxml");
-    }
-    
-    // Keep for backward compatibility
-    @FXML
-    private void handleContabilidad() {
-        handleFinancialReports();
-    }
-    
-    // Map handlePurchaseOrder to handlePurchaseOrders for consistency
-    @FXML
-    private void handlePurchaseOrders() {
-        loadModule("/com/minimercado/javafxinventario/purchase-order-view.fxml");
-    }
-    
-    // Keep for backward compatibility
-    @FXML
-    private void handlePurchaseOrder() {
-        handlePurchaseOrders();
-    }
-    
-    @FXML
-    private void handleSuppliers() {
-        loadModule("/com/minimercado/javafxinventario/supplier-view.fxml");
-    }
-
-    // Keep for backward compatibility
-    @FXML
-    private void handleReporteFinanciero() {
-        handleFinancialReports();
-    }
-    
-    @FXML
-    private void handleToggleTheme() {
-        Scene scene = contentPane.getScene();
-        String newTheme = ThemeManager.toggleTheme(scene);
+        // Inicialización del controlador
+        updateThemeIcon();
         
-        // Update status or show toast notification
-        showToast("Theme changed to " + (newTheme.equals("dark") ? "Dark" : "Light") + " mode");
-    }
-    
-    @FXML
-    private void handleThemeSettings() {
-        Scene scene = contentPane.getScene();
-        ThemeManager.showThemeDialog(scene);
-    }
-    
-    // Implementing missing methods from FXML
-    
-    @FXML
-    private void handleSettings() {
-        showNotImplementedMessage("Configuración del Sistema");
-    }
-    
-    @FXML
-    private void handleExit() {
-        Platform.exit();
-    }
-    
-    @FXML
-    private void handleCategories() {
-        loadModule("/com/minimercado/javafxinventario/categories-view.fxml");
-    }
-    
-    @FXML
-    private void handleInventoryReports() {
-        loadModule("/com/minimercado/javafxinventario/inventory-reports-view.fxml");
-    }
-    
-    @FXML
-    private void handleSalesSearch() {
-        loadModule("/com/minimercado/javafxinventario/sales-search-view.fxml");
-    }
-    
-    @FXML
-    private void handleSalesReports() {
-        loadModule("/com/minimercado/javafxinventario/sales-reports-view.fxml");
-    }
-    
-    @FXML
-    private void handleReceiveProducts() {
-        loadModule("/com/minimercado/javafxinventario/receive-products-view.fxml");
-    }
-    
-    @FXML
-    private void handleExpenses() {
-        loadModule("/com/minimercado/javafxinventario/expenses-view.fxml");
-    }
-    
-    @FXML
-    private void handleExpenseCategories() {
-        loadModule("/com/minimercado/javafxinventario/expense-categories-view.fxml");
-    }
-    
-    @FXML
-    private void handleEmployees() {
-        loadModule("/com/minimercado/javafxinventario/employees-view.fxml");
-    }
-    @FXML
-    private void handleFinancyReports() {
-        loadModule("/com/minimercado/javafxinventario/FinancialReportView.fxml");
-    }
-
-    @FXML
-    private void handleAbout() {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Acerca de");
-        alert.setHeaderText("Sistema de Gestión de Inventario");
-        alert.setContentText("Versión 1.0\nDesarrollado por TuEmpresa\nCopyright © 2023");
-        alert.showAndWait();
-    }
-    
-    @FXML
-    private void handleUserManual() {
-        try {
-            File userManual = new File("docs/manual.pdf");
-            if (userManual.exists() && Desktop.isDesktopSupported()) {
-                Desktop.getDesktop().open(userManual);
-            } else {
-                showError("Manual no disponible", "No se pudo abrir el manual de usuario.");
-            }
-        } catch (Exception e) {
-            showError("Error", "No se pudo abrir el manual: " + e.getMessage());
-        }
-    }
-    
-    private void showNotImplementedMessage(String feature) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Funcionalidad no implementada");
-        alert.setHeaderText(feature);
-        alert.setContentText("Esta funcionalidad aún no está implementada.");
-        alert.showAndWait();
-    }
-    
-    private void loadModule(String fxmlPath) {
-        try {
-            // Debug output to verify the path
-            System.out.println("Loading FXML from path: " + fxmlPath);
-            
-            // Get the resource URL
-            URL fxmlUrl = getClass().getResource(fxmlPath);
-            
-            // Debug - check if URL is null
-            if (fxmlUrl == null) {
-                System.err.println("FXML resource not found at path: " + fxmlPath);
-                throw new IOException("Could not locate FXML file: " + fxmlPath);
-            }
-            
-            FXMLLoader loader = new FXMLLoader(fxmlUrl);
-            Parent viewNode = loader.load();
-            contentPane.getChildren().setAll(viewNode);
-        } catch (IOException e) {
-            e.printStackTrace();
-            showError("Error Loading Module", "Could not load the requested module: " + e.getMessage());
+        // Inicializar el texto de usuario si es necesario
+        if (lblUsuario != null) {
+            lblUsuario.setText("Usuario: Admin");
         }
     }
     
     /**
-     * Helper method to verify if a resource exists at a given path
-     * @param resourcePath The path to check
+     * Maneja el evento para la sección de Inventario
      */
-    private void checkResourceExists(String resourcePath) {
-        URL resourceUrl = getClass().getResource(resourcePath);
-        if (resourceUrl == null) {
-            System.err.println("Resource NOT FOUND: " + resourcePath);
-        } else {
-            System.out.println("Resource found: " + resourcePath + " -> " + resourceUrl);
+    @FXML
+    private void handleInventario() {
+        lblTituloSeccion.setText("Gestión de Inventario");
+        loadModule("/com/minimercado/javafxinventario/inventory-view.fxml");
+    }
+    
+    /**
+     * Maneja el evento para la sección de Ventas
+     */
+    @FXML
+    private void handleVentas() {
+        lblTituloSeccion.setText("Punto de Venta");
+        loadModule("/com/minimercado/javafxinventario/venta-view.fxml");
+    }
+    
+    /**
+     * Maneja el evento para la sección de Compras
+     */
+    @FXML
+    private void handleCompras() {
+        lblTituloSeccion.setText("Gestión de Compras");
+        loadModule("/com/minimercado/javafxinventario/purchase-order-view.fxml");
+    }
+    
+    /**
+     * Maneja el evento para la sección de Gastos
+     */
+    @FXML
+    private void handleGastos() {
+        lblTituloSeccion.setText("Control de Gastos");
+        loadModule("/com/minimercado/javafxinventario/expenses-view.fxml");
+    }
+    
+    /**
+     * Maneja el evento para la sección de Reportes Generales
+     */
+    @FXML
+    private void handleReportesGenerales() {
+        lblTituloSeccion.setText("Reportes Generales");
+        loadModule("/com/minimercado/javafxinventario/FinancialReportView.fxml");
+    }
+    
+    /**
+     * Maneja el evento para la sección de Reportes Financieros
+     */
+    @FXML
+    private void handleReportesFinancieros() {
+        lblTituloSeccion.setText("Reportes Financieros");
+        loadModule("/com/minimercado/javafxinventario/views/financial-reports-view.fxml");
+    }
+    
+    /**
+     * Maneja el evento para la sección de Empleados
+     */
+    @FXML
+    private void handleEmpleados() {
+        lblTituloSeccion.setText("Gestión de Empleados");
+        loadModule("/com/minimercado/javafxinventario/employees-view.fxml");
+    }
+    
+    /**
+     * Maneja el evento para la sección de Configuración
+     */
+    @FXML
+    private void handleConfiguracion() {
+        lblTituloSeccion.setText("Configuración del Sistema");
+        loadModule("/com/minimercado/javafxinventario/settings-view.fxml");
+    }
+    
+    /**
+     * Maneja el cambio de tema (claro/oscuro)
+     */
+    @FXML
+    private void handleCambiarTema() {
+        isDarkTheme = !isDarkTheme;
+        ThemeManager.setTheme(contentPane.getScene(), isDarkTheme ? "dark" : "light");
+        updateThemeIcon();
+    }
+    
+    /**
+     * Actualiza el ícono según el tema actual
+     */
+    private void updateThemeIcon() {
+        if (themeIcon != null) {
+            themeIcon.setIconLiteral(isDarkTheme ? "fas-sun" : "fas-moon");
         }
     }
     
-    private void showError(String title, String content) {
-        Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle("Error");
-        alert.setHeaderText(title);
-        alert.setContentText(content);
-        alert.showAndWait();
+    /**
+     * Maneja el evento de salir de la aplicación
+     */
+    @FXML
+    private void handleSalir() {
+        Stage stage = (Stage) btnSalir.getScene().getWindow();
+        stage.close();
     }
     
-    private void showToast(String message) {
-        // Simple implementation - in a real app would show a proper toast notification
-        System.out.println(message);
+    /**
+     * Carga un módulo en el área de contenido
+     * @param fxmlPath La ruta al archivo FXML a cargar
+     */
+    private void loadModule(String fxmlPath) {
+        try {
+            FXMLLoader loader = new FXMLLoader(getClass().getResource(fxmlPath));
+            Parent moduleView = loader.load();
+            
+            // Limpia y coloca la nueva vista
+            contentPane.getChildren().clear();
+            contentPane.getChildren().add(moduleView);
+            
+        } catch (IOException e) {
+            System.err.println("Error al cargar el módulo: " + e.getMessage());
+            e.printStackTrace();
+            
+            // Mostrar mensaje de error en la interfaz
+            showModuleError(fxmlPath, e);
+        }
     }
+    
+    /**
+     * Muestra un mensaje de error cuando falla la carga de un módulo
+     * @param modulePath Ruta del módulo que falló al cargar
+     * @param error La excepción de error ocurrida
+     */
+    private void showModuleError(String modulePath, Exception error) {
+        // Crear un componente visual para mostrar el error
+        Label errorLabel = new Label("Error al cargar el módulo: " + modulePath + "\n" + error.getMessage());
+        errorLabel.getStyleClass().add("error-message");
+        
+        contentPane.getChildren().clear();
+        contentPane.getChildren().add(errorLabel);
+    }
+
 }

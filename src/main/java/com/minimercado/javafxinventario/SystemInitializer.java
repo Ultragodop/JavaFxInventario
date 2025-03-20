@@ -1,69 +1,55 @@
 package com.minimercado.javafxinventario;
 
+import com.minimercado.javafxinventario.utils.ThemeManager;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
-import java.io.IOException;
-import com.minimercado.javafxinventario.modules.AccountingModule;
-import com.minimercado.javafxinventario.modules.InventoryModule;
-import com.minimercado.javafxinventario.modules.SalesModule;
-import com.minimercado.javafxinventario.modules.SecurityModule;
-import com.minimercado.javafxinventario.modules.ApiGateway;
-import com.minimercado.javafxinventario.utils.ThemeManager;
+import org.kordamp.ikonli.fontawesome5.FontAwesomeSolid;
+import org.kordamp.ikonli.javafx.IkonResolver;
 
+/**
+ * Clase principal que inicia la aplicación
+ */
 public class SystemInitializer extends Application {
 
     @Override
-    public void start(Stage stage) throws IOException {
+    public void start(Stage stage) throws Exception {
+        // Registrar las fuentes de iconos antes de cargar el FXML
+        registerIkonHandler();
+        
+        FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/main-menu.fxml"));
+        Scene scene = new Scene(fxmlLoader.load(), 1200, 800);
+        
+        // Aplicar tema predeterminado
+        ThemeManager.applyDefaultTheme(scene);
+        
+        // Configurar ventana principal
+        stage.setTitle("Sistema de Gestión de Inventario");
         try {
-            FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/com/minimercado/javafxinventario/main-menu.fxml"));
-            Scene scene = new Scene(fxmlLoader.load());
-            
-            // Apply theme
-            ThemeManager.applyTheme(scene);
-            
-            stage.setTitle("Sistema de Gestión de Inventario");
-            stage.setScene(scene);
-            stage.setMaximized(true);
-            stage.show();
-            
-            // Initialize modules
-            initModules();
+            stage.getIcons().add(new Image(getClass().getResourceAsStream("/com/minimercado/javafxinventario/icons/app-icon.png")));
         } catch (Exception e) {
-            e.printStackTrace();
-            System.err.println("Error starting application: " + e.getMessage());
+            System.err.println("No se pudo cargar el ícono de la aplicación: " + e.getMessage());
         }
+        stage.setScene(scene);
+        stage.setMinWidth(800);
+        stage.setMinHeight(600);
+        stage.show();
     }
-
-    private void initModules() {
-        initAccountingModule();
-        initInventoryModule();
-        initSalesModule();
-        initSecurityModule();
-        initApiGateway();
-    }
-
-    private void initAccountingModule() {
-        // Initialize accounting module
-        AccountingModule.getInstance();
-    }
-
-    private void initInventoryModule() {
-        // Initialize inventory module
-        InventoryModule.getInstance();
-    }
-
-    private void initSalesModule() {
-        // Initialize sales module (handled through dependency injection)
-    }
-
-    private void initSecurityModule() {
-        // Initialize security module
-    }
-
-    private void initApiGateway() {
-        // Initialize API gateway for external services
+    
+    /**
+     * Registra los manejadores de iconos de Ikonli
+     */
+    private void registerIkonHandler() {
+        // Explicitar el registro de FontAwesome para asegurar que esté disponible
+        try {
+            // Forzar la carga de clases de FontAwesome
+            Class.forName(FontAwesomeSolid.class.getName());
+            System.out.println("FontAwesome Solid icons registered successfully");
+        } catch (ClassNotFoundException e) {
+            System.err.println("Error registering FontAwesome Solid icons: " + e.getMessage());
+        }
     }
 
     public static void main(String[] args) {
