@@ -33,7 +33,7 @@ public class SystemInitializer extends Application {
             System.err.println("No se pudo cargar el ícono de la aplicación: " + e.getMessage());
         }
         stage.setScene(scene);
-        stage.setMinWidth(800);
+        stage.setMaxWidth(800);
         stage.setMinHeight(600);
         stage.show();
     }
